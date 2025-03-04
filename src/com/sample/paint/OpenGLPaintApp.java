@@ -46,14 +46,34 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
             toolBar.add(createShapeButton(shape));
         }
 
-        JButton colorButton = new JButton("Color");
+        // Color Button
+        JButton colorButton = new JButton("Pick Color");
+
+        // Create a display the current color as a filled square
+        JPanel colorDisplay = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                g.setColor(currentColor);
+                g.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
+        colorDisplay.setPreferredSize(new Dimension(40, 30));
+        colorDisplay.setMaximumSize(new Dimension(40, 30));
+        colorDisplay.setMinimumSize(new Dimension(40, 30));
+
+        // Action listener for color button
         colorButton.addActionListener(e -> {
             Color selectedColor = JColorChooser.showDialog(this, "Pick a Color", currentColor);
-            if (selectedColor != null)
+            if (selectedColor != null) {
                 currentColor = selectedColor;
+                colorDisplay.repaint();
+            }
         });
         toolBar.add(colorButton);
+        toolBar.add(colorDisplay); // Add the color display next to the button
 
+        // Fill Checkbox
         JCheckBox fillCheckBox = new JCheckBox("Fill");
         fillCheckBox.addActionListener(e -> isFilled = fillCheckBox.isSelected());
         toolBar.add(fillCheckBox);
