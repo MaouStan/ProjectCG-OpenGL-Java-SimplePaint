@@ -1,0 +1,15 @@
+{
+    "java.project.sourcePaths": [
+        "src",
+        "lib",
+        "assets"
+    ],
+    "java.project.outputPath": "bin",
+    "java.project.referencedLibraries": [
+        "d:\\Coding\\3CS-Learn\\1204305-CG\\ProjectFinalCG\\dd\\lib\\gluegen-rt.jar",
+        "d:\\Coding\\3CS-Learn\\1204305-CG\\ProjectFinalCG\\dd\\lib\\jogl-all.jar",
+        "d:\\Coding\\3CS-Learn\\1204305-CG\\ProjectFinalCG\\dd\\lib\\gluegen-rt-android-natives-windows-amd64.jar",
+        "d:\\Coding\\3CS-Learn\\1204305-CG\\ProjectFinalCG\\dd\\lib\\jogl-all-natives-windows-amd64.jar"
+    ],
+    "java.jdt.ls.vmargs": "--add-exports java.base/java.lang=ALL-UNNAMED --add-exports java.desktop/sun.awt=ALL-UNNAMED --add-exports java.desktop/sun.java2d=ALL-UNNAMED -Dfile.encoding=Cp1252",
+}
