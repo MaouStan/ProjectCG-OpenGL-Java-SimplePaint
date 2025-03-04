@@ -39,50 +39,6 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
         setVisible(true);
     }
 
-    private void setupMouseListeners() {
-        canvas.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mousePressed(MouseEvent e) {
-                startX = (float) e.getX() / canvas.getWidth() * 2 - 1;
-                startY = 1 - (float) e.getY() / canvas.getHeight() * 2;
-                drawing = true;
-                if (currentShape.equals("Brush")) {
-                    brushPoints.clear();
-                    brushPoints.add(new Point(startX, startY));
-                }
-            }
-
-            @Override
-            public void mouseReleased(MouseEvent e) {
-                endX = (float) e.getX() / canvas.getWidth() * 2 - 1;
-                endY = 1 - (float) e.getY() / canvas.getHeight() * 2;
-                drawing = false;
-                if (currentShape.equals("Brush")) {
-                    shapes.add(new Shape(currentShape, new ArrayList<>(brushPoints), currentColor, isFilled));
-                } else if (currentShape.equals("Eraser")) {
-                    eraseShape(endX, endY);
-                } else {
-                    shapes.add(new Shape(currentShape, startX, startY, endX, endY, currentColor, isFilled));
-                }
-                canvas.display();
-            }
-        });
-
-        canvas.addMouseMotionListener(new MouseAdapter() {
-            @Override
-            public void mouseDragged(MouseEvent e) {
-                endX = (float) e.getX() / canvas.getWidth() * 2 - 1;
-                endY = 1 - (float) e.getY() / canvas.getHeight() * 2;
-                if (currentShape.equals("Brush")) {
-                    brushPoints.add(new Point(endX, endY));
-                } else if (currentShape.equals("Eraser")) {
-                    eraseShape(endX, endY);
-                }
-                canvas.display();
-            }
-        });
-    }
-
     private void setupGUI() {
         JToolBar toolBar = new JToolBar();
         String[] shapes = { "Line", "Rectangle", "Circle", "Ellipse", "Brush", "Eraser" };
@@ -146,10 +102,65 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
         }
     }
 
+    // In OpenGLPaintApp class, update mouse listeners to account for aspect ratio
+    private void setupMouseListeners() {
+        canvas.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                float aspectRatio = (float) canvas.getWidth() / canvas.getHeight();
+                startX = ((float) e.getX() / canvas.getWidth() * 2 - 1) * aspectRatio;
+                startY = 1 - (float) e.getY() / canvas.getHeight() * 2;
+                drawing = true;
+                if (currentShape.equals("Brush")) {
+                    brushPoints.clear();
+                    brushPoints.add(new Point(startX, startY));
+                }
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                float aspectRatio = (float) canvas.getWidth() / canvas.getHeight();
+                endX = ((float) e.getX() / canvas.getWidth() * 2 - 1) * aspectRatio;
+                endY = 1 - (float) e.getY() / canvas.getHeight() * 2;
+                drawing = false;
+                if (currentShape.equals("Brush")) {
+                    shapes.add(new Shape(currentShape, new ArrayList<>(brushPoints), currentColor, isFilled));
+                } else if (currentShape.equals("Eraser")) {
+                    eraseShape(endX, endY);
+                } else {
+                    shapes.add(new Shape(currentShape, startX, startY, endX, endY, currentColor, isFilled));
+                }
+                canvas.display();
+            }
+        });
+
+        canvas.addMouseMotionListener(new MouseAdapter() {
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                float aspectRatio = (float) canvas.getWidth() / canvas.getHeight();
+                endX = ((float) e.getX() / canvas.getWidth() * 2 - 1) * aspectRatio;
+                endY = 1 - (float) e.getY() / canvas.getHeight() * 2;
+                if (currentShape.equals("Brush")) {
+                    brushPoints.add(new Point(endX, endY));
+                } else if (currentShape.equals("Eraser")) {
+                    eraseShape(endX, endY);
+                }
+                canvas.display();
+            }
+        });
+    }
+
+    // Update reshape method to maintain proper projection
     @Override
     public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
         GL2 gl = drawable.getGL().getGL2();
         gl.glViewport(0, 0, width, height);
+
+        gl.glMatrixMode(GL2.GL_PROJECTION);
+        gl.glLoadIdentity();
+        float aspectRatio = (float) width / height;
+        gl.glOrtho(-aspectRatio, aspectRatio, -1.0, 1.0, -1.0, 1.0);
+        gl.glMatrixMode(GL2.GL_MODELVIEW);
     }
 
     private void eraseShape(float x, float y) {
@@ -235,18 +246,29 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
             }
         }
 
+        // Add to Shape class
+        // Updated drawMidpointCircle in Shape class
         private void drawMidpointCircle(GL2 gl, float x1, float y1, float x2, float y2, boolean filled) {
-            float radius = (float) Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+            float xc = (x1 + x2) / 2; // Center x
+            float yc = (y1 + y2) / 2; // Center y
+
+            // Calculate radius using the shorter dimension to ensure circle shape
+            float dx = Math.abs(x2 - x1);
+            float dy = Math.abs(y2 - y1);
+            float radius = Math.min(dx, dy) / 2; // Use minimum to avoid stretching
+
             int r = Math.round(radius * 1000);
-            int x = 0, y = r;
+            int x = 0;
+            int y = r;
             int d = 1 - r;
 
-            while (y >= x) {
+            while (x <= y) {
                 if (filled) {
-                    drawScanLineFillCircle(gl, x1, y1, x, y);
+                    drawScanLineFillCircle(gl, xc, yc, x, y);
                 } else {
-                    plotCirclePoints(gl, x1, y1, x, y);
+                    plotCirclePoints(gl, xc, yc, x, y);
                 }
+
                 if (d < 0) {
                     d += 2 * x + 3;
                 } else {
@@ -254,6 +276,56 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
                     y--;
                 }
                 x++;
+            }
+        }
+
+        // Helper method for plotting circle points
+        private void plotCirclePoints(GL2 gl, float xc, float yc, int x, int y) {
+            float xScaled = x / 1000.0f;
+            float yScaled = y / 1000.0f;
+            drawPoint(gl, xc + xScaled, yc + yScaled, color);
+            drawPoint(gl, xc - xScaled, yc + yScaled, color);
+            drawPoint(gl, xc + xScaled, yc - yScaled, color);
+            drawPoint(gl, xc - xScaled, yc - yScaled, color);
+            drawPoint(gl, xc + yScaled, yc + xScaled, color);
+            drawPoint(gl, xc - yScaled, yc + xScaled, color);
+            drawPoint(gl, xc + yScaled, yc - xScaled, color);
+            drawPoint(gl, xc - yScaled, yc - xScaled, color);
+        }
+
+        // Helper method for filled circle
+        private void drawScanLineFillCircle(GL2 gl, float xc, float yc, int x, int y) {
+            float xScaled = x / 1000.0f;
+            float yScaled = y / 1000.0f;
+            // Draw horizontal lines between symmetric points
+            for (float i = -xScaled; i <= xScaled; i += 0.001f) {
+                drawPoint(gl, xc + i, yc + yScaled, color);
+                drawPoint(gl, xc + i, yc - yScaled, color);
+            }
+            for (float i = -yScaled; i <= yScaled; i += 0.001f) {
+                drawPoint(gl, xc + i, yc + xScaled, color);
+                drawPoint(gl, xc + i, yc - xScaled, color);
+            }
+        }
+
+        // Update isPointInside method to handle Circle
+        boolean isPointInside(float x, float y, float size) {
+            switch (type) {
+                case "Line":
+                    return isPointNearLine(x, y, startX, startY, endX, endY, size);
+                case "Rectangle":
+                case "Ellipse":
+                    return Math.min(startX, endX) - size <= x && x <= Math.max(startX, endX) + size &&
+                            Math.min(startY, endY) - size <= y && y <= Math.max(startY, endY) + size;
+                case "Circle":
+                    float xc = (startX + endX) / 2;
+                    float yc = (startY + endY) / 2;
+                    float radius = (float) Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2)) / 2;
+                    return Math.sqrt(Math.pow(x - xc, 2) + Math.pow(y - yc, 2)) <= radius + size;
+                case "Brush":
+                    return points.stream().anyMatch(p -> Math.hypot(p.x - x, p.y - y) <= size);
+                default:
+                    return false;
             }
         }
 
@@ -292,8 +364,9 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
             }
 
             // Region 2: Slope < -1
-            long p2 = (long) (ry2 * (x + 0.5f) * (x + 0.5f) + rx2 * (y - 1) * (y - 1) - rx2 * ry2); // Initial decision parameter
-                                                                                           // for region 2
+            long p2 = (long) (ry2 * (x + 0.5f) * (x + 0.5f) + rx2 * (y - 1) * (y - 1) - rx2 * ry2); // Initial decision
+                                                                                                    // parameter
+            // for region 2
             while (y >= 0) {
                 if (filled) {
                     drawScanLineFillEllipse(gl, xc, yc, x, y);
@@ -375,28 +448,6 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
             }
         }
 
-        private void plotCirclePoints(GL2 gl, float xc, float yc, int x, int y) {
-            drawPoint(gl, xc + x / 1000.0f, yc + y / 1000.0f, color);
-            drawPoint(gl, xc - x / 1000.0f, yc + y / 1000.0f, color);
-            drawPoint(gl, xc + x / 1000.0f, yc - y / 1000.0f, color);
-            drawPoint(gl, xc - x / 1000.0f, yc - y / 1000.0f, color);
-            drawPoint(gl, xc + y / 1000.0f, yc + x / 1000.0f, color);
-            drawPoint(gl, xc - y / 1000.0f, yc + x / 1000.0f, color);
-            drawPoint(gl, xc + y / 1000.0f, yc - x / 1000.0f, color);
-            drawPoint(gl, xc - y / 1000.0f, yc - x / 1000.0f, color);
-        }
-
-        private void drawScanLineFillCircle(GL2 gl, float xc, float yc, int x, int y) {
-            for (int i = -x; i <= x; i++) {
-                drawPoint(gl, xc + i / 1000.0f, yc + y / 1000.0f, color);
-                drawPoint(gl, xc + i / 1000.0f, yc - y / 1000.0f, color);
-            }
-            for (int i = -y; i <= y; i++) {
-                drawPoint(gl, xc + x / 1000.0f, yc + i / 1000.0f, color);
-                drawPoint(gl, xc - x / 1000.0f, yc + i / 1000.0f, color);
-            }
-        }
-
         private void drawScanLineFill(GL2 gl, float x1, float y1, float x2, float y2) {
             float minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
             float minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
@@ -404,22 +455,6 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
                 for (float x = minX; x <= maxX; x += 0.001f) {
                     drawPoint(gl, x, y, color);
                 }
-            }
-        }
-
-        boolean isPointInside(float x, float y, float size) {
-            switch (type) {
-                case "Line":
-                    return isPointNearLine(x, y, startX, startY, endX, endY, size);
-                case "Rectangle":
-                case "Circle":
-                case "Ellipse":
-                    return Math.min(startX, endX) - size <= x && x <= Math.max(startX, endX) + size &&
-                            Math.min(startY, endY) - size <= y && y <= Math.max(startY, endY) + size;
-                case "Brush":
-                    return points.stream().anyMatch(p -> Math.hypot(p.x - x, p.y - y) <= size);
-                default:
-                    return false;
             }
         }
 
