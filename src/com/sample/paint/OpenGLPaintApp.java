@@ -3,6 +3,8 @@ package com.sample.paint;
 import com.jogamp.opengl.*;
 import com.jogamp.opengl.awt.GLCanvas;
 import com.sample.paint.model.*;
+import com.sample.paint.model.Point;
+import com.sample.paint.model.Rectangle;
 import com.sample.paint.model.Shape;
 import com.sample.paint.ui.ShapesToolbar;
 import com.sample.paint.util.GLRenderer;
@@ -31,6 +33,7 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
     private ShapesToolbar toolbar;
     private Color backgroundColor = Color.WHITE;
     private List<com.sample.paint.model.Point> eraserPoints = new ArrayList<>();
+    private String eraserMode = "point"; // Default to point eraser
 
     public OpenGLPaintApp() {
         setTitle("OpenGL Algorithm-Based Paint Application");
@@ -75,9 +78,44 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
             case "Fill":
                 isFilled = toolbar.isFilled();
                 break;
+            case "Eraser":
+                currentShape = command;
+                // Show eraser options when Eraser is selected
+                toolbar.setEraserOptionsVisible(true);
+                break;
+            case "PointEraser":
+                eraserMode = "point";
+                break;
+            case "ShapeEraser":
+                eraserMode = "shape";
+                break;
+            case "ClearCanvas":
+                clearCanvas();
+                break;
             default:
                 currentShape = command;
+                if (!command.equals("Eraser")) {
+                    // Hide eraser options when any other tool is selected
+                    toolbar.setEraserOptionsVisible(false);
+                }
                 break;
+        }
+    }
+
+    /**
+     * Clear the entire canvas
+     */
+    private void clearCanvas() {
+        // Show confirmation dialog before clearing
+        int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "Are you sure you want to clear the entire canvas?",
+                "Clear Canvas",
+                JOptionPane.YES_NO_OPTION);
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            shapes.clear(); // Remove all shapes
+            canvas.display(); // Refresh display
         }
     }
 
@@ -108,7 +146,7 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
                 // Draw eraser trail with background color
                 drawEraserTrail(gl);
             } else if (!currentShape.equals("Eraser")) {
-                com.sample.paint.model.Shape ghostShape = createShape();
+                Shape ghostShape = createShape();
                 if (ghostShape != null) {
                     ghostShape.draw(gl);
                 }
@@ -117,12 +155,12 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
     }
 
     // Create appropriate shape based on current settings
-    private com.sample.paint.model.Shape createShape() {
+    private Shape createShape() {
         switch (currentShape) {
             case "Line":
                 return new Line(startX, startY, endX, endY, currentColor, thickness);
             case "Rectangle":
-                return new com.sample.paint.model.Rectangle(startX, startY, endX, endY, currentColor, isFilled,
+                return new Rectangle(startX, startY, endX, endY, currentColor, isFilled,
                         thickness);
             case "Circle":
                 return new Circle(startX, startY, endX, endY, currentColor, isFilled, thickness);
@@ -139,19 +177,27 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
 
     // New method to draw eraser trail
     private void drawEraserTrail(GL2 gl) {
-        for (int i = 0; i < eraserPoints.size() - 1; i++) {
-            com.sample.paint.model.Point p1 = eraserPoints.get(i);
-            com.sample.paint.model.Point p2 = eraserPoints.get(i + 1);
-            // Draw thick white lines to erase
-            float thickerSize = thickness * 2; // Make eraser slightly thicker than brush
-            GLRenderer.drawThickPoint(gl, p1.x, p1.y, backgroundColor, thickerSize);
-            DrawingAlgorithms.bresenhamLine(gl, p1.x, p1.y, p2.x, p2.y, backgroundColor, thickerSize);
-        }
+        float thickerSize = thickness / 2; // Make eraser slightly thicker than brush
 
-        // Draw the current point
-        if (!eraserPoints.isEmpty()) {
-            com.sample.paint.model.Point p = eraserPoints.get(eraserPoints.size() - 1);
-            GLRenderer.drawThickPoint(gl, p.x, p.y, backgroundColor, thickness * 2);
+        if (eraserMode.equals("point")) {
+            // For point eraser, only draw individual points (no connecting lines)
+            for (Point p : eraserPoints) {
+                GLRenderer.drawThickPoint(gl, p.x, p.y, backgroundColor, thickerSize);
+            }
+        } else {
+            // For shape eraser, draw connecting lines (for visual feedback)
+            for (int i = 0; i < eraserPoints.size() - 1; i++) {
+                Point p1 = eraserPoints.get(i);
+                Point p2 = eraserPoints.get(i + 1);
+                GLRenderer.drawThickPoint(gl, p1.x, p1.y, backgroundColor, thickerSize);
+                DrawingAlgorithms.bresenhamLine(gl, p1.x, p1.y, p2.x, p2.y, backgroundColor, thickerSize);
+            }
+
+            // Draw the current point
+            if (!eraserPoints.isEmpty()) {
+                Point p = eraserPoints.get(eraserPoints.size() - 1);
+                GLRenderer.drawThickPoint(gl, p.x, p.y, backgroundColor, thickerSize);
+            }
         }
     }
 
@@ -166,11 +212,11 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
 
                 if (currentShape.equals("Brush")) {
                     brushPoints.clear();
-                    brushPoints.add(new com.sample.paint.model.Point(startX, startY));
+                    brushPoints.add(new Point(startX, startY));
                 } else if (currentShape.equals("Eraser")) {
-                    // Start a new eraser trail
+                    // Start a new eraser trail - clear the previous points
                     eraserPoints.clear();
-                    eraserPoints.add(new com.sample.paint.model.Point(startX, startY));
+                    eraserPoints.add(new Point(startX, startY));
                 }
             }
 
@@ -184,7 +230,12 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
                 if (currentShape.equals("Brush")) {
                     shapes.add(new BrushStroke(new ArrayList<>(brushPoints), currentColor, thickness));
                 } else if (currentShape.equals("Eraser")) {
-                    // No need to add eraser strokes to shapes, they just paint the background
+                    if (eraserMode.equals("point") && !eraserPoints.isEmpty()) {
+                        // Add all eraser points as a permanent brush stroke with background color
+                        shapes.add(new BrushStroke(new ArrayList<>(eraserPoints), backgroundColor, thickness * 2));
+                    }
+
+                    // Clear for next drawing operation
                     eraserPoints.clear();
                 } else {
                     Shape shape = createShape();
@@ -204,14 +255,33 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
                 endY = 1 - (float) e.getY() / canvas.getHeight() * 2;
 
                 if (currentShape.equals("Brush")) {
-                    brushPoints.add(new com.sample.paint.model.Point(endX, endY));
+                    brushPoints.add(new Point(endX, endY));
                 } else if (currentShape.equals("Eraser")) {
-                    // Add to eraser trail
-                    eraserPoints.add(new com.sample.paint.model.Point(endX, endY));
+                    // Handle erasing based on mode
+                    if (eraserMode.equals("point")) {
+                        // Add to eraser trail for point eraser (draw with background color)
+                        eraserPoints.add(new Point(endX, endY));
+
+                        // Immediately add a permanent eraser point (for better performance)
+                        if (eraserPoints.size() % 3 == 0) { // Add every few points to avoid too many small shapes
+                            // Add a single point as a permanent shape with background color
+                            shapes.add(new BrushStroke(List.of(new Point(endX, endY)), backgroundColor, thickness * 2));
+                        }
+                    } else {
+                        // Shape eraser - remove entire shapes
+                        eraseShapes(endX, endY);
+                    }
                 }
                 canvas.display();
             }
         });
+    }
+
+    /**
+     * Erase entire shapes that the cursor touches
+     */
+    private void eraseShapes(float x, float y) {
+        shapes.removeIf(shape -> shape.isPointInside(x, y, eraserSize));
     }
 
     @Override

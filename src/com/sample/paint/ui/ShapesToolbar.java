@@ -14,6 +14,11 @@ public class ShapesToolbar extends JToolBar {
     private JSlider thicknessSlider;
     private JCheckBox fillCheckBox;
     private Color currentColor = Color.RED;
+    private ButtonGroup eraserModeGroup;
+    private JRadioButton pointEraserRadio;
+    private JRadioButton shapeEraserRadio;
+    private JPanel eraserPanel;
+    private JButton clearCanvasButton;
 
     /**
      * Constructor accepting any ActionListener (which will be the OpenGLPaintApp)
@@ -22,7 +27,7 @@ public class ShapesToolbar extends JToolBar {
         super(SwingConstants.VERTICAL); // Make toolbar vertical
 
         // Panel for shape buttons in 2 columns
-        JPanel buttonPanel = new JPanel(new GridLayout(0, 2, 5, 5)); // 0 rows, 2 columns, with gaps
+        JPanel buttonPanel = new JPanel(new GridLayout(0, 1, 5, 5)); // 0 rows, 2 columns, with gaps
         buttonPanel.setOpaque(false);
 
         // Create shape buttons
@@ -54,6 +59,43 @@ public class ShapesToolbar extends JToolBar {
         // Set default selected button
         selectedButton = buttons.get("Line");
         selectedButton.setForeground(Color.RED);
+
+        // Add eraser options panel (initially invisible)
+        eraserPanel = new JPanel(new GridLayout(0, 1));
+        eraserPanel.setBorder(BorderFactory.createTitledBorder("Eraser Mode"));
+        eraserModeGroup = new ButtonGroup();
+
+        pointEraserRadio = new JRadioButton("Point Eraser");
+        pointEraserRadio.setSelected(true); // Default option
+        pointEraserRadio.setActionCommand("PointEraser");
+        pointEraserRadio.addActionListener(actionListener);
+
+        shapeEraserRadio = new JRadioButton("Shape Eraser");
+        shapeEraserRadio.setActionCommand("ShapeEraser");
+        shapeEraserRadio.addActionListener(actionListener);
+
+        eraserModeGroup.add(pointEraserRadio);
+        eraserModeGroup.add(shapeEraserRadio);
+
+        eraserPanel.add(pointEraserRadio);
+        eraserPanel.add(shapeEraserRadio);
+        eraserPanel.setVisible(false); // Initially hidden
+
+        add(eraserPanel);
+        add(Box.createVerticalStrut(10));
+
+        // Add Clear Canvas button in a 2-column panel
+        JPanel clearCanvasPanel = new JPanel(new GridLayout(1, 2, 5, 5));
+        clearCanvasPanel.setOpaque(false);
+
+        clearCanvasButton = new JButton("Clear Canvas");
+        clearCanvasButton.setActionCommand("ClearCanvas");
+        clearCanvasButton.addActionListener(actionListener);
+        clearCanvasButton.setForeground(Color.RED);
+        clearCanvasButton.setFont(new Font(clearCanvasButton.getFont().getName(), Font.BOLD, 12));
+        clearCanvasPanel.add(clearCanvasButton);
+        add(clearCanvasPanel);
+        add(Box.createVerticalStrut(20));
 
         // Color picker
         JPanel colorPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -138,5 +180,21 @@ public class ShapesToolbar extends JToolBar {
      */
     public Color getCurrentColor() {
         return currentColor;
+    }
+
+    /**
+     * Get the current eraser mode
+     */
+    public String getEraserMode() {
+        return pointEraserRadio.isSelected() ? "point" : "shape";
+    }
+
+    /**
+     * Set visibility of eraser options
+     */
+    public void setEraserOptionsVisible(boolean visible) {
+        eraserPanel.setVisible(visible);
+        revalidate();
+        repaint();
     }
 }

@@ -6,6 +6,14 @@
     "configurations": [
         {
             "type": "java",
+            "name": "OpenGLPaintApp",
+            "request": "launch",
+            "mainClass": "com.sample.paint.OpenGLPaintApp",
+            "projectName": "dd_fabcb9de",
+            "vmArgs": "--add-exports java.base/java.lang=ALL-UNNAMED --add-exports java.desktop/sun.awt=ALL-UNNAMED --add-exports java.desktop/sun.java2d=ALL-UNNAMED"
+        },
+        {
+            "type": "java",
             "name": "Current File",
             "request": "launch",
             "mainClass": "${file}",
@@ -18,7 +26,6 @@
             "mainClass": "App",
             "projectName": "dd_fabcb9de",
             "vmArgs": "--add-exports java.base/java.lang=ALL-UNNAMED --add-exports java.desktop/sun.awt=ALL-UNNAMED --add-exports java.desktop/sun.java2d=ALL-UNNAMED"
-
         }
     ]
 }
