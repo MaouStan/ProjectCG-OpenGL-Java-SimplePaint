@@ -85,7 +85,7 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
 
     private void setupGUI() {
         JToolBar toolBar = new JToolBar();
-        String[] shapes = {"Line", "Rectangle", "Circle", "Ellipse", "Brush", "Eraser"};
+        String[] shapes = { "Line", "Rectangle", "Circle", "Ellipse", "Brush", "Eraser" };
         for (String shape : shapes) {
             toolBar.add(createShapeButton(shape));
         }
@@ -93,7 +93,8 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
         JButton colorButton = new JButton("Color");
         colorButton.addActionListener(e -> {
             Color selectedColor = JColorChooser.showDialog(this, "Pick a Color", currentColor);
-            if (selectedColor != null) currentColor = selectedColor;
+            if (selectedColor != null)
+                currentColor = selectedColor;
         });
         toolBar.add(colorButton);
 
@@ -109,7 +110,8 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
         button.setFocusable(false);
         button.addActionListener(e -> {
             currentShape = shape;
-            if (selectedButton != null) selectedButton.setForeground(Color.BLACK);
+            if (selectedButton != null)
+                selectedButton.setForeground(Color.BLACK);
             selectedButton = button;
             selectedButton.setForeground(Color.RED);
             setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
@@ -124,7 +126,8 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
     }
 
     @Override
-    public void dispose(GLAutoDrawable drawable) {}
+    public void dispose(GLAutoDrawable drawable) {
+    }
 
     @Override
     public void display(GLAutoDrawable drawable) {
@@ -136,9 +139,9 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
         }
 
         if (drawing && !currentShape.equals("Eraser")) {
-            Shape ghostShape = currentShape.equals("Brush") ?
-                new Shape(currentShape, new ArrayList<>(brushPoints), currentColor, isFilled) :
-                new Shape(currentShape, startX, startY, endX, endY, currentColor, isFilled);
+            Shape ghostShape = currentShape.equals("Brush")
+                    ? new Shape(currentShape, new ArrayList<>(brushPoints), currentColor, isFilled)
+                    : new Shape(currentShape, startX, startY, endX, endY, currentColor, isFilled);
             ghostShape.draw(gl);
         }
     }
@@ -191,55 +194,31 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
         void draw(GL2 gl) {
             switch (type) {
                 case "Line":
+                    // Lines are always unfilled, ignore 'filled' flag
                     drawLine(gl, startX, startY, endX, endY);
                     break;
                 case "Rectangle":
+                    // Apply fill option for rectangles
                     drawRectangle(gl, startX, startY, endX, endY, filled);
                     break;
                 case "Circle":
+                    // Apply fill option for circles
                     drawMidpointCircle(gl, startX, startY, endX, endY, filled);
                     break;
                 case "Ellipse":
+                    // Apply fill option for ellipses
                     drawMidpointEllipse(gl, startX, startY, endX, endY, filled);
                     break;
                 case "Brush":
+                    // Brush is always unfilled, ignore 'filled' flag
                     drawBrush(gl);
                     break;
             }
         }
 
+        // Existing drawing methods remain unchanged
         private void drawLine(GL2 gl, float x1, float y1, float x2, float y2) {
             bresenhamLine(gl, x1, y1, x2, y2);
-            // Alternatively, use ddaLine(gl, x1, y1, x2, y2);
-        }
-
-        private void bresenhamLine(GL2 gl, float x1, float y1, float x2, float y2) {
-            int x0 = Math.round(x1 * 1000), y0 = Math.round(y1 * 1000);
-            int xEnd = Math.round(x2 * 1000), yEnd = Math.round(y2 * 1000);
-            int dx = Math.abs(xEnd - x0), dy = Math.abs(yEnd - y0);
-            int sx = x0 < xEnd ? 1 : -1, sy = y0 < yEnd ? 1 : -1;
-            int err = dx - dy;
-
-            while (true) {
-                drawPoint(gl, x0 / 1000.0f, y0 / 1000.0f, color);
-                if (x0 == xEnd && y0 == yEnd) break;
-                int e2 = 2 * err;
-                if (e2 > -dy) { err -= dy; x0 += sx; }
-                if (e2 < dx) { err += dx; y0 += sy; }
-            }
-        }
-
-        private void ddaLine(GL2 gl, float x1, float y1, float x2, float y2) {
-            float dx = x2 - x1, dy = y2 - y1;
-            int steps = (int) Math.max(Math.abs(dx), Math.abs(dy)) * 1000;
-            float xInc = dx / steps, yInc = dy / steps;
-            float x = x1, y = y1;
-
-            for (int i = 0; i <= steps; i++) {
-                drawPoint(gl, x, y, color);
-                x += xInc;
-                y += yInc;
-            }
         }
 
         private void drawRectangle(GL2 gl, float x1, float y1, float x2, float y2, boolean filled) {
@@ -278,6 +257,124 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
             }
         }
 
+        private void drawMidpointEllipse(GL2 gl, float x1, float y1, float x2, float y2, boolean filled) {
+            // Calculate center and radii
+            float xc = (x1 + x2) / 2; // Center x
+            float yc = (y1 + y2) / 2; // Center y
+            float rx = Math.abs(x2 - x1) / 2; // Semi-major axis (horizontal radius)
+            float ry = Math.abs(y2 - y1) / 2; // Semi-minor axis (vertical radius)
+
+            // Use integer arithmetic scaled by 1000 for precision, then convert back
+            int rxInt = Math.round(rx * 1000);
+            int ryInt = Math.round(ry * 1000);
+            int x = 0;
+            int y = ryInt;
+            long rx2 = (long) rxInt * rxInt;
+            long ry2 = (long) ryInt * ryInt;
+
+            // Region 1: Slope > -1 (dy/dx > -1)
+            long p1 = ry2 - rx2 * ryInt + rx2 / 4; // Initial decision parameter for region 1
+            while (ry2 * x <= rx2 * y) { // Continue until slope = -1
+                if (filled) {
+                    drawScanLineFillEllipse(gl, xc, yc, x, y);
+                } else {
+                    plotEllipsePoints(gl, xc, yc, x, y);
+                }
+
+                if (p1 < 0) {
+                    x++;
+                    p1 += 2 * ry2 * x + ry2;
+                } else {
+                    x++;
+                    y--;
+                    p1 += 2 * ry2 * x - 2 * rx2 * y + ry2;
+                }
+            }
+
+            // Region 2: Slope < -1
+            long p2 = (long) (ry2 * (x + 0.5f) * (x + 0.5f) + rx2 * (y - 1) * (y - 1) - rx2 * ry2); // Initial decision parameter
+                                                                                           // for region 2
+            while (y >= 0) {
+                if (filled) {
+                    drawScanLineFillEllipse(gl, xc, yc, x, y);
+                } else {
+                    plotEllipsePoints(gl, xc, yc, x, y);
+                }
+
+                if (p2 > 0) {
+                    y--;
+                    p2 += rx2 - 2 * rx2 * y;
+                } else {
+                    x++;
+                    y--;
+                    p2 += 2 * ry2 * x - 2 * rx2 * y + rx2;
+                }
+            }
+        }
+
+        private void plotEllipsePoints(GL2 gl, float xc, float yc, int x, int y) {
+            float xScaled = x / 1000.0f;
+            float yScaled = y / 1000.0f;
+            drawPoint(gl, xc + xScaled, yc + yScaled, color);
+            drawPoint(gl, xc - xScaled, yc + yScaled, color);
+            drawPoint(gl, xc + xScaled, yc - yScaled, color);
+            drawPoint(gl, xc - xScaled, yc - yScaled, color);
+        }
+
+        private void drawScanLineFillEllipse(GL2 gl, float xc, float yc, int x, int y) {
+            float xScaled = x / 1000.0f;
+            float yScaled = y / 1000.0f;
+            // Draw horizontal lines between symmetric points
+            for (float i = -xScaled; i <= xScaled; i += 0.001f) {
+                drawPoint(gl, xc + i, yc + yScaled, color);
+                drawPoint(gl, xc + i, yc - yScaled, color);
+            }
+        }
+
+        private void drawBrush(GL2 gl) {
+            for (int i = 0; i < points.size() - 1; i++) {
+                Point p1 = points.get(i);
+                Point p2 = points.get(i + 1);
+                bresenhamLine(gl, p1.x, p1.y, p2.x, p2.y);
+            }
+        }
+
+        private void bresenhamLine(GL2 gl, float x1, float y1, float x2, float y2) {
+            int x0 = Math.round(x1 * 1000), y0 = Math.round(y1 * 1000);
+            int xEnd = Math.round(x2 * 1000), yEnd = Math.round(y2 * 1000);
+            int dx = Math.abs(xEnd - x0), dy = Math.abs(yEnd - y0);
+            int sx = x0 < xEnd ? 1 : -1, sy = y0 < yEnd ? 1 : -1;
+            int err = dx - dy;
+
+            while (true) {
+                drawPoint(gl, x0 / 1000.0f, y0 / 1000.0f, color);
+                if (x0 == xEnd && y0 == yEnd)
+                    break;
+                int e2 = 2 * err;
+                if (e2 > -dy) {
+                    err -= dy;
+                    x0 += sx;
+                }
+                if (e2 < dx) {
+                    err += dx;
+                    y0 += sy;
+                }
+            }
+        }
+
+        private void ddaLine(GL2 gl, float x1, float y1, float x2, float y2) {
+            float dx = x2 - x1, dy = y2 - y1;
+            int steps = (int) Math.max(Math.abs(dx), Math.abs(dy)) * 1000;
+            float xInc = dx / steps, yInc = dy / steps;
+            float x = x1, y = y1;
+
+            for (int i = 0; i <= steps; i++) {
+                drawPoint(gl, x, y, color);
+                x += xInc;
+                y += yInc;
+            }
+        }
+
         private void plotCirclePoints(GL2 gl, float xc, float yc, int x, int y) {
             drawPoint(gl, xc + x / 1000.0f, yc + y / 1000.0f, color);
             drawPoint(gl, xc - x / 1000.0f, yc + y / 1000.0f, color);
@@ -300,69 +397,6 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
             }
         }
 
-        private void drawMidpointEllipse(GL2 gl, float x1, float y1, float x2, float y2, boolean filled) {
-            int rx = Math.round(Math.abs(x2 - x1) * 1000);
-            int ry = Math.round(Math.abs(y2 - y1) * 1000);
-            int x = 0, y = ry;
-            long dx = (long) ry * ry * (1 - 2 * rx);
-            long dy = (long) rx * rx;
-            long err = 0;
-            long rx2 = rx * rx, ry2 = ry * ry;
-
-            while (dx < 0) {
-                if (filled) {
-                    drawScanLineFillEllipse(gl, x1, y1, x, y);
-                } else {
-                    plotEllipsePoints(gl, x1, y1, x, y);
-                }
-                x++;
-                err += dy;
-                dy += 2 * rx2;
-                if (2 * err + dx > 0) {
-                    y--;
-                    err += dx;
-                    dx += 2 * ry2;
-                }
-            }
-            while (y >= 0) {
-                if (filled) {
-                    drawScanLineFillEllipse(gl, x1, y1, x, y);
-                } else {
-                    plotEllipsePoints(gl, x1, y1, x, y);
-                }
-                y--;
-                err += dx;
-                dx += 2 * ry2;
-                if (2 * err + dy < 0) {
-                    x++;
-                    err += dy;
-                    dy += 2 * rx2;
-                }
-            }
-        }
-
-        private void plotEllipsePoints(GL2 gl, float xc, float yc, int x, int y) {
-            drawPoint(gl, xc + x / 1000.0f, yc + y / 1000.0f, color);
-            drawPoint(gl, xc - x / 1000.0f, yc + y / 1000.0f, color);
-            drawPoint(gl, xc + x / 1000.0f, yc - y / 1000.0f, color);
-            drawPoint(gl, xc - x / 1000.0f, yc - y / 1000.0f, color);
-        }
-
-        private void drawScanLineFillEllipse(GL2 gl, float xc, float yc, int x, int y) {
-            for (int i = -x; i <= x; i++) {
-                drawPoint(gl, xc + i / 1000.0f, yc + y / 1000.0f, color);
-                drawPoint(gl, xc + i / 1000.0f, yc - y / 1000.0f, color);
-            }
-        }
-
-        private void drawBrush(GL2 gl) {
-            for (int i = 0; i < points.size() - 1; i++) {
-                Point p1 = points.get(i);
-                Point p2 = points.get(i + 1);
-                bresenhamLine(gl, p1.x, p1.y, p2.x, p2.y);
-            }
-        }
-
         private void drawScanLineFill(GL2 gl, float x1, float y1, float x2, float y2) {
             float minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
             float minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
@@ -381,7 +415,7 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
                 case "Circle":
                 case "Ellipse":
                     return Math.min(startX, endX) - size <= x && x <= Math.max(startX, endX) + size &&
-                           Math.min(startY, endY) - size <= y && y <= Math.max(startY, endY) + size;
+                            Math.min(startY, endY) - size <= y && y <= Math.max(startY, endY) + size;
                 case "Brush":
                     return points.stream().anyMatch(p -> Math.hypot(p.x - x, p.y - y) <= size);
                 default:
@@ -398,6 +432,7 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
 
     private class Point {
         float x, y;
+
         Point(float x, float y) {
             this.x = x;
             this.y = y;
