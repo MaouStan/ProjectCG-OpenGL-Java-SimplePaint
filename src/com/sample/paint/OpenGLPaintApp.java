@@ -22,7 +22,7 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
     private JButton selectedButton;
 
     public OpenGLPaintApp() {
-        setTitle("OpenGL Advanced Paint Application");
+        setTitle("OpenGL Algorithm-Based Paint Application");
         setSize(800, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
@@ -120,7 +120,7 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
     @Override
     public void init(GLAutoDrawable drawable) {
         GL2 gl = drawable.getGL().getGL2();
-        gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // White background
     }
 
     @Override
@@ -157,6 +157,13 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
         SwingUtilities.invokeLater(OpenGLPaintApp::new);
     }
 
+    private void drawPoint(GL2 gl, float x, float y, Color color) {
+        gl.glColor3f(color.getRed() / 255.0f, color.getGreen() / 255.0f, color.getBlue() / 255.0f);
+        gl.glBegin(GL2.GL_POINTS);
+        gl.glVertex2f(x, y);
+        gl.glEnd();
+    }
+
     private class Shape {
         String type;
         float startX, startY, endX, endY;
@@ -182,10 +189,9 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
         }
 
         void draw(GL2 gl) {
-            gl.glColor3f(color.getRed() / 255.0f, color.getGreen() / 255.0f, color.getBlue() / 255.0f);
             switch (type) {
                 case "Line":
-                    drawBresenhamLine(gl, startX, startY, endX, endY);
+                    drawLine(gl, startX, startY, endX, endY);
                     break;
                 case "Rectangle":
                     drawRectangle(gl, startX, startY, endX, endY, filled);
@@ -202,8 +208,12 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
             }
         }
 
-        private void drawBresenhamLine(GL2 gl, float x1, float y1, float x2, float y2) {
-            gl.glBegin(GL2.GL_POINTS);
+        private void drawLine(GL2 gl, float x1, float y1, float x2, float y2) {
+            bresenhamLine(gl, x1, y1, x2, y2);
+            // Alternatively, use ddaLine(gl, x1, y1, x2, y2);
+        }
+
+        private void bresenhamLine(GL2 gl, float x1, float y1, float x2, float y2) {
             int x0 = Math.round(x1 * 1000), y0 = Math.round(y1 * 1000);
             int xEnd = Math.round(x2 * 1000), yEnd = Math.round(y2 * 1000);
             int dx = Math.abs(xEnd - x0), dy = Math.abs(yEnd - y0);
@@ -211,25 +221,38 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
             int err = dx - dy;
 
             while (true) {
-                gl.glVertex2f(x0 / 1000.0f, y0 / 1000.0f);
+                drawPoint(gl, x0 / 1000.0f, y0 / 1000.0f, color);
                 if (x0 == xEnd && y0 == yEnd) break;
                 int e2 = 2 * err;
                 if (e2 > -dy) { err -= dy; x0 += sx; }
                 if (e2 < dx) { err += dx; y0 += sy; }
             }
-            gl.glEnd();
+        }
+
+        private void ddaLine(GL2 gl, float x1, float y1, float x2, float y2) {
+            float dx = x2 - x1, dy = y2 - y1;
+            int steps = (int) Math.max(Math.abs(dx), Math.abs(dy)) * 1000;
+            float xInc = dx / steps, yInc = dy / steps;
+            float x = x1, y = y1;
+
+            for (int i = 0; i <= steps; i++) {
+                drawPoint(gl, x, y, color);
+                x += xInc;
+                y += yInc;
+            }
         }
 
         private void drawRectangle(GL2 gl, float x1, float y1, float x2, float y2, boolean filled) {
+            float minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+            float minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+
             if (filled) {
-                drawScanLineFill(gl, x1, y1, x2, y2);
+                drawScanLineFill(gl, minX, minY, maxX, maxY);
             } else {
-                gl.glBegin(GL2.GL_LINE_LOOP);
-                gl.glVertex2f(x1, y1);
-                gl.glVertex2f(x2, y1);
-                gl.glVertex2f(x2, y2);
-                gl.glVertex2f(x1, y2);
-                gl.glEnd();
+                bresenhamLine(gl, minX, minY, maxX, minY); // Top
+                bresenhamLine(gl, maxX, minY, maxX, maxY); // Right
+                bresenhamLine(gl, maxX, maxY, minX, maxY); // Bottom
+                bresenhamLine(gl, minX, maxY, minX, minY); // Left
             }
         }
 
@@ -238,10 +261,13 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
             int r = Math.round(radius * 1000);
             int x = 0, y = r;
             int d = 1 - r;
-            gl.glBegin(filled ? GL2.GL_POINTS : GL2.GL_POINTS);
 
             while (y >= x) {
-                plotCirclePoints(gl, x1, y1, x, y, filled);
+                if (filled) {
+                    drawScanLineFillCircle(gl, x1, y1, x, y);
+                } else {
+                    plotCirclePoints(gl, x1, y1, x, y);
+                }
                 if (d < 0) {
                     d += 2 * x + 3;
                 } else {
@@ -250,26 +276,27 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
                 }
                 x++;
             }
-            gl.glEnd();
         }
 
-        private void plotCirclePoints(GL2 gl, float xc, float yc, int x, int y, boolean filled) {
-            if (filled) {
-                for (int i = -x; i <= x; i++) {
-                    gl.glVertex2f((xc + i / 1000.0f), (yc + y / 1000.0f));
-                    gl.glVertex2f((xc + i / 1000.0f), (yc - y / 1000.0f));
-                    gl.glVertex2f((xc + y / 1000.0f), (yc + i / 1000.0f));
-                    gl.glVertex2f((xc - y / 1000.0f), (yc + i / 1000.0f));
-                }
-            } else {
-                gl.glVertex2f((xc + x / 1000.0f), (yc + y / 1000.0f));
-                gl.glVertex2f((xc - x / 1000.0f), (yc + y / 1000.0f));
-                gl.glVertex2f((xc + x / 1000.0f), (yc - y / 1000.0f));
-                gl.glVertex2f((xc - x / 1000.0f), (yc - y / 1000.0f));
-                gl.glVertex2f((xc + y / 1000.0f), (yc + x / 1000.0f));
-                gl.glVertex2f((xc - y / 1000.0f), (yc + x / 1000.0f));
-                gl.glVertex2f((xc + y / 1000.0f), (yc - x / 1000.0f));
-                gl.glVertex2f((xc - y / 1000.0f), (yc - x / 1000.0f));
+        private void plotCirclePoints(GL2 gl, float xc, float yc, int x, int y) {
+            drawPoint(gl, xc + x / 1000.0f, yc + y / 1000.0f, color);
+            drawPoint(gl, xc - x / 1000.0f, yc + y / 1000.0f, color);
+            drawPoint(gl, xc + x / 1000.0f, yc - y / 1000.0f, color);
+            drawPoint(gl, xc - x / 1000.0f, yc - y / 1000.0f, color);
+            drawPoint(gl, xc + y / 1000.0f, yc + x / 1000.0f, color);
+            drawPoint(gl, xc - y / 1000.0f, yc + x / 1000.0f, color);
+            drawPoint(gl, xc + y / 1000.0f, yc - x / 1000.0f, color);
+            drawPoint(gl, xc - y / 1000.0f, yc - x / 1000.0f, color);
+        }
+
+        private void drawScanLineFillCircle(GL2 gl, float xc, float yc, int x, int y) {
+            for (int i = -x; i <= x; i++) {
+                drawPoint(gl, xc + i / 1000.0f, yc + y / 1000.0f, color);
+                drawPoint(gl, xc + i / 1000.0f, yc - y / 1000.0f, color);
+            }
+            for (int i = -y; i <= y; i++) {
+                drawPoint(gl, xc + x / 1000.0f, yc + i / 1000.0f, color);
+                drawPoint(gl, xc - x / 1000.0f, yc + i / 1000.0f, color);
             }
         }
 
@@ -282,9 +309,12 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
             long err = 0;
             long rx2 = rx * rx, ry2 = ry * ry;
 
-            gl.glBegin(filled ? GL2.GL_POINTS : GL2.GL_POINTS);
             while (dx < 0) {
-                plotEllipsePoints(gl, x1, y1, x, y, filled);
+                if (filled) {
+                    drawScanLineFillEllipse(gl, x1, y1, x, y);
+                } else {
+                    plotEllipsePoints(gl, x1, y1, x, y);
+                }
                 x++;
                 err += dy;
                 dy += 2 * rx2;
@@ -295,7 +325,11 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
                 }
             }
             while (y >= 0) {
-                plotEllipsePoints(gl, x1, y1, x, y, filled);
+                if (filled) {
+                    drawScanLineFillEllipse(gl, x1, y1, x, y);
+                } else {
+                    plotEllipsePoints(gl, x1, y1, x, y);
+                }
                 y--;
                 err += dx;
                 dx += 2 * ry2;
@@ -305,44 +339,41 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
                     dy += 2 * rx2;
                 }
             }
-            gl.glEnd();
         }
 
-        private void plotEllipsePoints(GL2 gl, float xc, float yc, int x, int y, boolean filled) {
-            if (filled) {
-                for (int i = -x; i <= x; i++) {
-                    gl.glVertex2f((xc + i / 1000.0f), (yc + y / 1000.0f));
-                    gl.glVertex2f((xc + i / 1000.0f), (yc - y / 1000.0f));
-                }
-            } else {
-                gl.glVertex2f((xc + x / 1000.0f), (yc + y / 1000.0f));
-                gl.glVertex2f((xc - x / 1000.0f), (yc + y / 1000.0f));
-                gl.glVertex2f((xc + x / 1000.0f), (yc - y / 1000.0f));
-                gl.glVertex2f((xc - x / 1000.0f), (yc - y / 1000.0f));
+        private void plotEllipsePoints(GL2 gl, float xc, float yc, int x, int y) {
+            drawPoint(gl, xc + x / 1000.0f, yc + y / 1000.0f, color);
+            drawPoint(gl, xc - x / 1000.0f, yc + y / 1000.0f, color);
+            drawPoint(gl, xc + x / 1000.0f, yc - y / 1000.0f, color);
+            drawPoint(gl, xc - x / 1000.0f, yc - y / 1000.0f, color);
+        }
+
+        private void drawScanLineFillEllipse(GL2 gl, float xc, float yc, int x, int y) {
+            for (int i = -x; i <= x; i++) {
+                drawPoint(gl, xc + i / 1000.0f, yc + y / 1000.0f, color);
+                drawPoint(gl, xc + i / 1000.0f, yc - y / 1000.0f, color);
             }
         }
 
         private void drawBrush(GL2 gl) {
-            gl.glBegin(GL2.GL_LINE_STRIP);
-            for (Point point : points) {
-                gl.glVertex2f(point.x, point.y);
+            for (int i = 0; i < points.size() - 1; i++) {
+                Point p1 = points.get(i);
+                Point p2 = points.get(i + 1);
+                bresenhamLine(gl, p1.x, p1.y, p2.x, p2.y);
             }
-            gl.glEnd();
         }
 
         private void drawScanLineFill(GL2 gl, float x1, float y1, float x2, float y2) {
             float minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
             float minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
-            gl.glBegin(GL2.GL_LINES);
             for (float y = minY; y <= maxY; y += 0.001f) {
-                gl.glVertex2f(minX, y);
-                gl.glVertex2f(maxX, y);
+                for (float x = minX; x <= maxX; x += 0.001f) {
+                    drawPoint(gl, x, y, color);
+                }
             }
-            gl.glEnd();
         }
 
         boolean isPointInside(float x, float y, float size) {
-            // Simplified collision detection (expand as needed)
             switch (type) {
                 case "Line":
                     return isPointNearLine(x, y, startX, startY, endX, endY, size);
