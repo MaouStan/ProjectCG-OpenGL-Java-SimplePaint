@@ -123,6 +123,7 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
     public void init(GLAutoDrawable drawable) {
         GL2 gl = drawable.getGL().getGL2();
         gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        canvas.display();
     }
 
     @Override
