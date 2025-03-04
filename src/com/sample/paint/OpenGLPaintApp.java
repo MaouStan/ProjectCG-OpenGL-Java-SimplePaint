@@ -209,11 +209,12 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
         SwingUtilities.invokeLater(OpenGLPaintApp::new);
     }
 
-    private void drawPoint(GL2 gl, float x, float y, Color color) {
+    // Update drawPoint to accept a thickness parameter
+    private void drawPoint(GL2 gl, float x, float y, Color color, float pointThickness) {
         gl.glColor3f(color.getRed() / 255.0f, color.getGreen() / 255.0f, color.getBlue() / 255.0f);
 
-        // Use point size based on thickness
-        gl.glPointSize(thickness);
+        // Use point size based on passed thickness
+        gl.glPointSize(pointThickness);
 
         gl.glBegin(GL2.GL_POINTS);
         gl.glVertex2f(x, y);
@@ -221,6 +222,11 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
 
         // Reset point size to default
         gl.glPointSize(1.0f);
+    }
+
+    // Add backward compatibility method that uses current thickness
+    private void drawPoint(GL2 gl, float x, float y, Color color) {
+        drawPoint(gl, x, y, color, thickness);
     }
 
     private class Shape {
@@ -331,14 +337,14 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
         private void plotCirclePoints(GL2 gl, float xc, float yc, int x, int y) {
             float xScaled = x / 1000.0f;
             float yScaled = y / 1000.0f;
-            drawPoint(gl, xc + xScaled, yc + yScaled, color);
-            drawPoint(gl, xc - xScaled, yc + yScaled, color);
-            drawPoint(gl, xc + xScaled, yc - yScaled, color);
-            drawPoint(gl, xc - xScaled, yc - yScaled, color);
-            drawPoint(gl, xc + yScaled, yc + xScaled, color);
-            drawPoint(gl, xc - yScaled, yc + xScaled, color);
-            drawPoint(gl, xc + yScaled, yc - xScaled, color);
-            drawPoint(gl, xc - yScaled, yc - xScaled, color);
+            drawPoint(gl, xc + xScaled, yc + yScaled, color, thickness);
+            drawPoint(gl, xc - xScaled, yc + yScaled, color, thickness);
+            drawPoint(gl, xc + xScaled, yc - yScaled, color, thickness);
+            drawPoint(gl, xc - xScaled, yc - yScaled, color, thickness);
+            drawPoint(gl, xc + yScaled, yc + xScaled, color, thickness);
+            drawPoint(gl, xc - yScaled, yc + xScaled, color, thickness);
+            drawPoint(gl, xc + yScaled, yc - xScaled, color, thickness);
+            drawPoint(gl, xc - yScaled, yc - xScaled, color, thickness);
         }
 
         // Helper method for filled circle
@@ -347,12 +353,12 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
             float yScaled = y / 1000.0f;
             // Draw horizontal lines between symmetric points
             for (float i = -xScaled; i <= xScaled; i += 0.001f) {
-                drawPoint(gl, xc + i, yc + yScaled, color);
-                drawPoint(gl, xc + i, yc - yScaled, color);
+                drawPoint(gl, xc + i, yc + yScaled, color, thickness);
+                drawPoint(gl, xc + i, yc - yScaled, color, thickness);
             }
             for (float i = -yScaled; i <= yScaled; i += 0.001f) {
-                drawPoint(gl, xc + i, yc + xScaled, color);
-                drawPoint(gl, xc + i, yc - xScaled, color);
+                drawPoint(gl, xc + i, yc + xScaled, color, thickness);
+                drawPoint(gl, xc + i, yc - xScaled, color, thickness);
             }
         }
 
@@ -436,10 +442,10 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
         private void plotEllipsePoints(GL2 gl, float xc, float yc, int x, int y) {
             float xScaled = x / 1000.0f;
             float yScaled = y / 1000.0f;
-            drawPoint(gl, xc + xScaled, yc + yScaled, color);
-            drawPoint(gl, xc - xScaled, yc + yScaled, color);
-            drawPoint(gl, xc + xScaled, yc - yScaled, color);
-            drawPoint(gl, xc - xScaled, yc - yScaled, color);
+            drawPoint(gl, xc + xScaled, yc + yScaled, color, thickness);
+            drawPoint(gl, xc - xScaled, yc + yScaled, color, thickness);
+            drawPoint(gl, xc + xScaled, yc - yScaled, color, thickness);
+            drawPoint(gl, xc - xScaled, yc - yScaled, color, thickness);
         }
 
         private void drawScanLineFillEllipse(GL2 gl, float xc, float yc, int x, int y) {
@@ -447,8 +453,8 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
             float yScaled = y / 1000.0f;
             // Draw horizontal lines between symmetric points
             for (float i = -xScaled; i <= xScaled; i += 0.001f) {
-                drawPoint(gl, xc + i, yc + yScaled, color);
-                drawPoint(gl, xc + i, yc - yScaled, color);
+                drawPoint(gl, xc + i, yc + yScaled, color, thickness);
+                drawPoint(gl, xc + i, yc - yScaled, color, thickness);
             }
         }
 
@@ -468,7 +474,7 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
             int err = dx - dy;
 
             while (true) {
-                drawPoint(gl, x0 / 1000.0f, y0 / 1000.0f, color);
+                drawPoint(gl, x0 / 1000.0f, y0 / 1000.0f, color, thickness);
                 if (x0 == xEnd && y0 == yEnd)
                     break;
                 int e2 = 2 * err;
@@ -490,7 +496,7 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
             float x = x1, y = y1;
 
             for (int i = 0; i <= steps; i++) {
-                drawPoint(gl, x, y, color);
+                drawPoint(gl, x, y, color, thickness);
                 x += xInc;
                 y += yInc;
             }
@@ -501,7 +507,7 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
             float minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
             for (float y = minY; y <= maxY; y += 0.001f) {
                 for (float x = minX; x <= maxX; x += 0.001f) {
-                    drawPoint(gl, x, y, color);
+                    drawPoint(gl, x, y, color, thickness);
                 }
             }
         }
