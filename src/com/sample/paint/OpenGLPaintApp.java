@@ -2,94 +2,374 @@ package com.sample.paint;
 
 import com.jogamp.opengl.*;
 import com.jogamp.opengl.awt.GLCanvas;
-import com.sample.paint.gui.ToolBar;
-import com.sample.paint.events.MouseHandler;
-import com.sample.paint.drawing.Shape;
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.util.ArrayList;
+import java.util.List;
 
 public class OpenGLPaintApp extends JFrame implements GLEventListener {
     private GLCanvas canvas;
-    private ToolBar toolBar;
-    private MouseHandler mouseHandler;
+    private float startX, startY, endX, endY;
+    private boolean drawing = false;
     private String currentShape = "Line";
+    private List<Shape> shapes = new ArrayList<>();
+    private List<Point> brushPoints = new ArrayList<>();
+    private float eraserSize = 0.05f;
     private Color currentColor = Color.RED;
+    private boolean isFilled = false;
+    private JButton selectedButton;
 
     public OpenGLPaintApp() {
-        setTitle("OpenGL Paint Application");
+        setTitle("OpenGL Advanced Paint Application");
         setSize(800, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        // Set up OpenGL profile and capabilities
         GLProfile profile = GLProfile.get(GLProfile.GL2);
         GLCapabilities capabilities = new GLCapabilities(profile);
         canvas = new GLCanvas(capabilities);
         canvas.addGLEventListener(this);
 
-        // Initialize toolbar and mouse handler
-        toolBar = new ToolBar(this);
-        mouseHandler = new MouseHandler(this, canvas);
+        setupMouseListeners();
+        setupGUI();
 
-        add(toolBar, BorderLayout.NORTH);
         add(canvas, BorderLayout.CENTER);
         setVisible(true);
     }
 
-    public static void main(String[] args) {
-        // Run the application on the event dispatch thread
-        SwingUtilities.invokeLater(() -> new OpenGLPaintApp());
+    private void setupMouseListeners() {
+        canvas.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                startX = (float) e.getX() / canvas.getWidth() * 2 - 1;
+                startY = 1 - (float) e.getY() / canvas.getHeight() * 2;
+                drawing = true;
+                if (currentShape.equals("Brush")) {
+                    brushPoints.clear();
+                    brushPoints.add(new Point(startX, startY));
+                }
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                endX = (float) e.getX() / canvas.getWidth() * 2 - 1;
+                endY = 1 - (float) e.getY() / canvas.getHeight() * 2;
+                drawing = false;
+                if (currentShape.equals("Brush")) {
+                    shapes.add(new Shape(currentShape, new ArrayList<>(brushPoints), currentColor, isFilled));
+                } else if (currentShape.equals("Eraser")) {
+                    eraseShape(endX, endY);
+                } else {
+                    shapes.add(new Shape(currentShape, startX, startY, endX, endY, currentColor, isFilled));
+                }
+                canvas.display();
+            }
+        });
+
+        canvas.addMouseMotionListener(new MouseAdapter() {
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                endX = (float) e.getX() / canvas.getWidth() * 2 - 1;
+                endY = 1 - (float) e.getY() / canvas.getHeight() * 2;
+                if (currentShape.equals("Brush")) {
+                    brushPoints.add(new Point(endX, endY));
+                } else if (currentShape.equals("Eraser")) {
+                    eraseShape(endX, endY);
+                }
+                canvas.display();
+            }
+        });
+    }
+
+    private void setupGUI() {
+        JToolBar toolBar = new JToolBar();
+        String[] shapes = {"Line", "Rectangle", "Circle", "Ellipse", "Brush", "Eraser"};
+        for (String shape : shapes) {
+            toolBar.add(createShapeButton(shape));
+        }
+
+        JButton colorButton = new JButton("Color");
+        colorButton.addActionListener(e -> {
+            Color selectedColor = JColorChooser.showDialog(this, "Pick a Color", currentColor);
+            if (selectedColor != null) currentColor = selectedColor;
+        });
+        toolBar.add(colorButton);
+
+        JCheckBox fillCheckBox = new JCheckBox("Fill");
+        fillCheckBox.addActionListener(e -> isFilled = fillCheckBox.isSelected());
+        toolBar.add(fillCheckBox);
+
+        add(toolBar, BorderLayout.NORTH);
+    }
+
+    private JButton createShapeButton(String shape) {
+        JButton button = new JButton(shape);
+        button.setFocusable(false);
+        button.addActionListener(e -> {
+            currentShape = shape;
+            if (selectedButton != null) selectedButton.setForeground(Color.BLACK);
+            selectedButton = button;
+            selectedButton.setForeground(Color.RED);
+            setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
+        });
+        return button;
     }
 
     @Override
     public void init(GLAutoDrawable drawable) {
         GL2 gl = drawable.getGL().getGL2();
-        gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // Set background color to white
+        gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
     @Override
-    public void dispose(GLAutoDrawable drawable) {
-        // Cleanup code (if needed)
-    }
+    public void dispose(GLAutoDrawable drawable) {}
 
     @Override
     public void display(GLAutoDrawable drawable) {
         GL2 gl = drawable.getGL().getGL2();
-        gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT); // Clear the screen
+        gl.glClear(GL2.GL_COLOR_BUFFER_BIT);
 
-        // Draw all shapes
-        for (Shape shape : mouseHandler.getShapes()) {
+        for (Shape shape : shapes) {
             shape.draw(gl);
         }
 
-        // Draw ghost shape if currently drawing
-        if (mouseHandler.isDrawing()) {
-            Shape ghostShape = mouseHandler.createGhostShape();
-            if (ghostShape != null) {
-                ghostShape.draw(gl);
-            }
+        if (drawing && !currentShape.equals("Eraser")) {
+            Shape ghostShape = currentShape.equals("Brush") ?
+                new Shape(currentShape, new ArrayList<>(brushPoints), currentColor, isFilled) :
+                new Shape(currentShape, startX, startY, endX, endY, currentColor, isFilled);
+            ghostShape.draw(gl);
         }
     }
 
     @Override
     public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
         GL2 gl = drawable.getGL().getGL2();
-        gl.glViewport(0, 0, width, height); // Adjust the viewport to the new window size
+        gl.glViewport(0, 0, width, height);
     }
 
-    public String getCurrentShape() {
-        return currentShape;
+    private void eraseShape(float x, float y) {
+        shapes.removeIf(shape -> shape.isPointInside(x, y, eraserSize));
     }
 
-    public void setCurrentShape(String currentShape) {
-        this.currentShape = currentShape;
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(OpenGLPaintApp::new);
     }
 
-    public Color getCurrentColor() {
-        return currentColor;
+    private class Shape {
+        String type;
+        float startX, startY, endX, endY;
+        List<Point> points;
+        Color color;
+        boolean filled;
+
+        Shape(String type, float startX, float startY, float endX, float endY, Color color, boolean filled) {
+            this.type = type;
+            this.startX = startX;
+            this.startY = startY;
+            this.endX = endX;
+            this.endY = endY;
+            this.color = color;
+            this.filled = filled;
+        }
+
+        Shape(String type, List<Point> points, Color color, boolean filled) {
+            this.type = type;
+            this.points = points;
+            this.color = color;
+            this.filled = filled;
+        }
+
+        void draw(GL2 gl) {
+            gl.glColor3f(color.getRed() / 255.0f, color.getGreen() / 255.0f, color.getBlue() / 255.0f);
+            switch (type) {
+                case "Line":
+                    drawBresenhamLine(gl, startX, startY, endX, endY);
+                    break;
+                case "Rectangle":
+                    drawRectangle(gl, startX, startY, endX, endY, filled);
+                    break;
+                case "Circle":
+                    drawMidpointCircle(gl, startX, startY, endX, endY, filled);
+                    break;
+                case "Ellipse":
+                    drawMidpointEllipse(gl, startX, startY, endX, endY, filled);
+                    break;
+                case "Brush":
+                    drawBrush(gl);
+                    break;
+            }
+        }
+
+        private void drawBresenhamLine(GL2 gl, float x1, float y1, float x2, float y2) {
+            gl.glBegin(GL2.GL_POINTS);
+            int x0 = Math.round(x1 * 1000), y0 = Math.round(y1 * 1000);
+            int xEnd = Math.round(x2 * 1000), yEnd = Math.round(y2 * 1000);
+            int dx = Math.abs(xEnd - x0), dy = Math.abs(yEnd - y0);
+            int sx = x0 < xEnd ? 1 : -1, sy = y0 < yEnd ? 1 : -1;
+            int err = dx - dy;
+
+            while (true) {
+                gl.glVertex2f(x0 / 1000.0f, y0 / 1000.0f);
+                if (x0 == xEnd && y0 == yEnd) break;
+                int e2 = 2 * err;
+                if (e2 > -dy) { err -= dy; x0 += sx; }
+                if (e2 < dx) { err += dx; y0 += sy; }
+            }
+            gl.glEnd();
+        }
+
+        private void drawRectangle(GL2 gl, float x1, float y1, float x2, float y2, boolean filled) {
+            if (filled) {
+                drawScanLineFill(gl, x1, y1, x2, y2);
+            } else {
+                gl.glBegin(GL2.GL_LINE_LOOP);
+                gl.glVertex2f(x1, y1);
+                gl.glVertex2f(x2, y1);
+                gl.glVertex2f(x2, y2);
+                gl.glVertex2f(x1, y2);
+                gl.glEnd();
+            }
+        }
+
+        private void drawMidpointCircle(GL2 gl, float x1, float y1, float x2, float y2, boolean filled) {
+            float radius = (float) Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+            int r = Math.round(radius * 1000);
+            int x = 0, y = r;
+            int d = 1 - r;
+            gl.glBegin(filled ? GL2.GL_POINTS : GL2.GL_POINTS);
+
+            while (y >= x) {
+                plotCirclePoints(gl, x1, y1, x, y, filled);
+                if (d < 0) {
+                    d += 2 * x + 3;
+                } else {
+                    d += 2 * (x - y) + 5;
+                    y--;
+                }
+                x++;
+            }
+            gl.glEnd();
+        }
+
+        private void plotCirclePoints(GL2 gl, float xc, float yc, int x, int y, boolean filled) {
+            if (filled) {
+                for (int i = -x; i <= x; i++) {
+                    gl.glVertex2f((xc + i / 1000.0f), (yc + y / 1000.0f));
+                    gl.glVertex2f((xc + i / 1000.0f), (yc - y / 1000.0f));
+                    gl.glVertex2f((xc + y / 1000.0f), (yc + i / 1000.0f));
+                    gl.glVertex2f((xc - y / 1000.0f), (yc + i / 1000.0f));
+                }
+            } else {
+                gl.glVertex2f((xc + x / 1000.0f), (yc + y / 1000.0f));
+                gl.glVertex2f((xc - x / 1000.0f), (yc + y / 1000.0f));
+                gl.glVertex2f((xc + x / 1000.0f), (yc - y / 1000.0f));
+                gl.glVertex2f((xc - x / 1000.0f), (yc - y / 1000.0f));
+                gl.glVertex2f((xc + y / 1000.0f), (yc + x / 1000.0f));
+                gl.glVertex2f((xc - y / 1000.0f), (yc + x / 1000.0f));
+                gl.glVertex2f((xc + y / 1000.0f), (yc - x / 1000.0f));
+                gl.glVertex2f((xc - y / 1000.0f), (yc - x / 1000.0f));
+            }
+        }
+
+        private void drawMidpointEllipse(GL2 gl, float x1, float y1, float x2, float y2, boolean filled) {
+            int rx = Math.round(Math.abs(x2 - x1) * 1000);
+            int ry = Math.round(Math.abs(y2 - y1) * 1000);
+            int x = 0, y = ry;
+            long dx = (long) ry * ry * (1 - 2 * rx);
+            long dy = (long) rx * rx;
+            long err = 0;
+            long rx2 = rx * rx, ry2 = ry * ry;
+
+            gl.glBegin(filled ? GL2.GL_POINTS : GL2.GL_POINTS);
+            while (dx < 0) {
+                plotEllipsePoints(gl, x1, y1, x, y, filled);
+                x++;
+                err += dy;
+                dy += 2 * rx2;
+                if (2 * err + dx > 0) {
+                    y--;
+                    err += dx;
+                    dx += 2 * ry2;
+                }
+            }
+            while (y >= 0) {
+                plotEllipsePoints(gl, x1, y1, x, y, filled);
+                y--;
+                err += dx;
+                dx += 2 * ry2;
+                if (2 * err + dy < 0) {
+                    x++;
+                    err += dy;
+                    dy += 2 * rx2;
+                }
+            }
+            gl.glEnd();
+        }
+
+        private void plotEllipsePoints(GL2 gl, float xc, float yc, int x, int y, boolean filled) {
+            if (filled) {
+                for (int i = -x; i <= x; i++) {
+                    gl.glVertex2f((xc + i / 1000.0f), (yc + y / 1000.0f));
+                    gl.glVertex2f((xc + i / 1000.0f), (yc - y / 1000.0f));
+                }
+            } else {
+                gl.glVertex2f((xc + x / 1000.0f), (yc + y / 1000.0f));
+                gl.glVertex2f((xc - x / 1000.0f), (yc + y / 1000.0f));
+                gl.glVertex2f((xc + x / 1000.0f), (yc - y / 1000.0f));
+                gl.glVertex2f((xc - x / 1000.0f), (yc - y / 1000.0f));
+            }
+        }
+
+        private void drawBrush(GL2 gl) {
+            gl.glBegin(GL2.GL_LINE_STRIP);
+            for (Point point : points) {
+                gl.glVertex2f(point.x, point.y);
+            }
+            gl.glEnd();
+        }
+
+        private void drawScanLineFill(GL2 gl, float x1, float y1, float x2, float y2) {
+            float minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+            float minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+            gl.glBegin(GL2.GL_LINES);
+            for (float y = minY; y <= maxY; y += 0.001f) {
+                gl.glVertex2f(minX, y);
+                gl.glVertex2f(maxX, y);
+            }
+            gl.glEnd();
+        }
+
+        boolean isPointInside(float x, float y, float size) {
+            // Simplified collision detection (expand as needed)
+            switch (type) {
+                case "Line":
+                    return isPointNearLine(x, y, startX, startY, endX, endY, size);
+                case "Rectangle":
+                case "Circle":
+                case "Ellipse":
+                    return Math.min(startX, endX) - size <= x && x <= Math.max(startX, endX) + size &&
+                           Math.min(startY, endY) - size <= y && y <= Math.max(startY, endY) + size;
+                case "Brush":
+                    return points.stream().anyMatch(p -> Math.hypot(p.x - x, p.y - y) <= size);
+                default:
+                    return false;
+            }
+        }
+
+        private boolean isPointNearLine(float px, float py, float x1, float y1, float x2, float y2, float size) {
+            float dist = (float) (Math.abs((y2 - y1) * px - (x2 - x1) * py + x2 * y1 - y2 * x1) /
+                    Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2)));
+            return dist <= size;
+        }
     }
 
-    public void setCurrentColor(Color currentColor) {
-        this.currentColor = currentColor;
+    private class Point {
+        float x, y;
+        Point(float x, float y) {
+            this.x = x;
+            this.y = y;
+        }
     }
 }
