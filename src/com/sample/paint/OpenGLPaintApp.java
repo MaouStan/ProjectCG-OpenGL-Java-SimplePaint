@@ -20,6 +20,7 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
     private Color currentColor = Color.RED;
     private boolean isFilled = false;
     private JButton selectedButton;
+    private float thickness = 1.0f; // Default thickness (1 pixel)
 
     public OpenGLPaintApp() {
         setTitle("OpenGL Algorithm-Based Paint Application");
@@ -77,6 +78,23 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
         JCheckBox fillCheckBox = new JCheckBox("Fill");
         fillCheckBox.addActionListener(e -> isFilled = fillCheckBox.isSelected());
         toolBar.add(fillCheckBox);
+
+        // Add thickness slider
+        JLabel thicknessLabel = new JLabel("Thickness: ");
+        toolBar.add(thicknessLabel);
+
+        JSlider thicknessSlider = new JSlider(JSlider.HORIZONTAL, 1, 10, 1);
+        thicknessSlider.setMajorTickSpacing(1);
+        thicknessSlider.setPaintTicks(true);
+        thicknessSlider.setPaintLabels(true);
+        thicknessSlider.setPreferredSize(new Dimension(150, 40));
+        thicknessSlider.addChangeListener(e -> {
+            thickness = thicknessSlider.getValue();
+            if (currentShape.equals("Eraser")) {
+                eraserSize = 0.01f * thickness * 2; // Scale eraser size with thickness
+            }
+        });
+        toolBar.add(thicknessSlider);
 
         add(toolBar, BorderLayout.NORTH);
     }
@@ -193,9 +211,16 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
 
     private void drawPoint(GL2 gl, float x, float y, Color color) {
         gl.glColor3f(color.getRed() / 255.0f, color.getGreen() / 255.0f, color.getBlue() / 255.0f);
+
+        // Use point size based on thickness
+        gl.glPointSize(thickness);
+
         gl.glBegin(GL2.GL_POINTS);
         gl.glVertex2f(x, y);
         gl.glEnd();
+
+        // Reset point size to default
+        gl.glPointSize(1.0f);
     }
 
     private class Shape {
@@ -204,6 +229,7 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
         List<Point> points;
         Color color;
         boolean filled;
+        float thickness; // Add thickness field to Shape class
 
         Shape(String type, float startX, float startY, float endX, float endY, Color color, boolean filled) {
             this.type = type;
@@ -213,6 +239,7 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
             this.endY = endY;
             this.color = color;
             this.filled = filled;
+            this.thickness = OpenGLPaintApp.this.thickness; // Store current thickness
         }
 
         Shape(String type, List<Point> points, Color color, boolean filled) {
@@ -220,6 +247,7 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener {
             this.points = points;
             this.color = color;
             this.filled = filled;
+            this.thickness = OpenGLPaintApp.this.thickness; // Store current thickness
         }
 
         void draw(GL2 gl) {
