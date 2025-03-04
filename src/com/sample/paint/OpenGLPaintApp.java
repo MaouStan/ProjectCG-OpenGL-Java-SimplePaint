@@ -9,7 +9,7 @@ import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 
-public class App extends JFrame implements GLEventListener {
+public class OpenGLPaintApp extends JFrame implements GLEventListener {
     private GLCanvas canvas;
     private float startX, startY, endX, endY;
     private boolean drawing = false;
@@ -20,7 +20,7 @@ public class App extends JFrame implements GLEventListener {
     private Color currentColor = Color.RED;
     private JButton selectedButton;
 
-    public App() {
+    public OpenGLPaintApp() {
         setTitle("OpenGL Paint Application");
         setSize(800, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -135,7 +135,7 @@ public class App extends JFrame implements GLEventListener {
 
     public static void main(String[] args) {
         // Run the application on the event dispatch thread
-        SwingUtilities.invokeLater(() -> new App());
+        SwingUtilities.invokeLater(() -> new OpenGLPaintApp());
     }
 
     @Override
@@ -204,7 +204,8 @@ public class App extends JFrame implements GLEventListener {
         }
 
         void draw(GL2 gl) {
-            gl.glColor3f(color.getRed() / 255.0f, color.getGreen() / 255.0f, color.getBlue() / 255.0f); // Set drawing color
+            gl.glColor3f(color.getRed() / 255.0f, color.getGreen() / 255.0f, color.getBlue() / 255.0f); // Set drawing
+                                                                                                        // color
             switch (type) {
                 case "Line":
                     gl.glBegin(GL2.GL_LINES);
