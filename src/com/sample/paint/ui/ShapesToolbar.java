@@ -26,12 +26,15 @@ public class ShapesToolbar extends JToolBar {
     public ShapesToolbar(ActionListener actionListener) {
         super(SwingConstants.VERTICAL); // Make toolbar vertical
 
+        // Set not floatable to keep toolbar in place
+        setFloatable(false);
+
         // Panel for shape buttons in 2 columns
         JPanel buttonPanel = new JPanel(new GridLayout(0, 2, 5, 5)); // 0 rows, 2 columns, with gaps
         buttonPanel.setOpaque(false);
 
         // Create shape buttons with icons
-        String[] shapes = { "Line", "Rectangle", "Circle", "Ellipse", "Triangle", "Brush", "Eraser" }; // Added Star
+        String[] shapes = { "Line", "Rectangle", "Circle", "Ellipse", "Triangle", "Brush", "Eraser" };
 
         for (String shape : shapes) {
             JButton button = createShapeButton(shape, actionListener);
@@ -73,9 +76,23 @@ public class ShapesToolbar extends JToolBar {
         add(eraserPanel);
         add(Box.createVerticalStrut(10));
 
-        // Add Clear Canvas button in a 2-row layout
-        JPanel clearCanvasPanel = new JPanel(new GridLayout(2, 1, 5, 5));
-        clearCanvasPanel.setOpaque(false);
+        // Add buttons for file operations (like save)
+        JPanel filePanel = new JPanel(new GridLayout(2, 1, 5, 5));
+        filePanel.setOpaque(false);
+        filePanel.setBorder(BorderFactory.createTitledBorder("File Operations"));
+
+        // Create save button
+        JButton saveButton = new JButton();
+        saveButton.setActionCommand("SaveCanvas");
+        saveButton.addActionListener(actionListener);
+        saveButton.setToolTipText("Save Canvas as Image");
+        try {
+            ImageIcon icon = new ImageIcon("assets/img/save.png");
+            Image img = icon.getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH);
+            saveButton.setIcon(new ImageIcon(img));
+        } catch (Exception e) {
+            saveButton.setText("Save");
+        }
 
         // Create clear canvas button with icon
         clearCanvasButton = new JButton();
@@ -87,36 +104,43 @@ public class ShapesToolbar extends JToolBar {
             Image img = icon.getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH);
             clearCanvasButton.setIcon(new ImageIcon(img));
         } catch (Exception e) {
-            // Fallback to text if image can't be loaded
             clearCanvasButton.setText("Clear Canvas");
         }
 
-        // Add label below the icon
-        // JLabel clearLabel = new JLabel("Clear Canvas", SwingConstants.CENTER);
-        // clearLabel.setForeground(Color.RED);
-        // clearLabel.setFont(new Font(clearLabel.getFont().getName(), Font.BOLD, 12));
+        filePanel.add(saveButton);
+        filePanel.add(clearCanvasButton);
+        add(filePanel);
+        add(Box.createVerticalStrut(10));
 
-        clearCanvasPanel.add(clearCanvasButton);
-        // clearCanvasPanel.add(clearLabel);
-        add(clearCanvasPanel);
-        add(Box.createVerticalStrut(20));
-
-        // Color picker
-        JPanel colorPanel = new JPanel(new GridLayout(2, 1, 5, 5));
+        // Color picker panel with foreground and background color options
+        JPanel colorPanel = new JPanel(new GridLayout(2, 2, 5, 5));
         colorPanel.setOpaque(false);
 
         // Create pick color button with icon
         JButton colorButton = new JButton();
         colorButton.setActionCommand("Pick Color");
         colorButton.addActionListener(actionListener);
-        colorButton.setToolTipText("Pick Color");
+        colorButton.setToolTipText("Change Foreground Color");
         try {
             ImageIcon icon = new ImageIcon("assets/img/pickcolor.png");
             Image img = icon.getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH);
             colorButton.setIcon(new ImageIcon(img));
         } catch (Exception e) {
-            // Fallback to text if image can't be loaded
-            colorButton.setText("Pick Color");
+            colorButton.setText("FG");
+        }
+
+        // Background color button
+        JButton bgColorButton = new JButton();
+        bgColorButton.setActionCommand("Background Color");
+        bgColorButton.addActionListener(actionListener);
+        bgColorButton.setToolTipText("Change Background Color");
+        try {
+            // Use the specified background color icon
+            ImageIcon icon = new ImageIcon("assets/img/bg-changing.png");
+            Image img = icon.getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH);
+            bgColorButton.setIcon(new ImageIcon(img));
+        } catch (Exception e) {
+            bgColorButton.setText("BG");
         }
 
         // Color display
@@ -132,9 +156,14 @@ public class ShapesToolbar extends JToolBar {
         colorDisplay.setBorder(BorderFactory.createLineBorder(Color.BLACK));
         colorDisplay.setToolTipText("Current Color");
 
+        // Add all components to the color panel
+        colorPanel.add(new JLabel("Colors:"));
+        colorPanel.add(new JLabel("")); // Empty cell for alignment
         colorPanel.add(colorButton);
-        colorPanel.add(colorDisplay);
+        colorPanel.add(bgColorButton);
         add(colorPanel);
+        add(Box.createVerticalStrut(10));
+        add(colorDisplay);
         add(Box.createVerticalStrut(10));
 
         // Fill checkbox

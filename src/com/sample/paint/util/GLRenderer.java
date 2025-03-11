@@ -53,8 +53,9 @@ public class GLRenderer {
      * @param y Y coordinate
      * @param borderColor Color of the border
      * @param size Size of the brush/eraser
+     * @param zoomFactor Current zoom level
      */
-    public static void drawPointBorder(GL2 gl, float x, float y, Color borderColor, float size) {
+    public static void drawPointBorder(GL2 gl, float x, float y, Color borderColor, float size, float zoomFactor) {
         // Save current color
         float[] currentColor = new float[4];
         gl.glGetFloatv(GL2.GL_CURRENT_COLOR, currentColor, 0);
@@ -68,7 +69,8 @@ public class GLRenderer {
         gl.glLineWidth(1.0f);
         gl.glBegin(GL2.GL_LINE_LOOP);
 
-        float radius = size / 2.0f;
+        // Adjust radius based on zoom factor - at higher zoom the border should be smaller
+        float radius = size / (2.0f * zoomFactor);
         int segments = 20; // Number of segments for the circle
 
         for (int i = 0; i < segments; i++) {
@@ -86,22 +88,59 @@ public class GLRenderer {
     }
 
     /**
-     * Sets up the OpenGL viewport and projection matrix for proper aspect ratio
+     * Legacy version of drawPointBorder for backward compatibility
      */
-    public static void setupViewport(GL2 gl, int width, int height) {
+    public static void drawPointBorder(GL2 gl, float x, float y, Color borderColor, float size) {
+        drawPointBorder(gl, x, y, borderColor, size, 1.0f);
+    }
+
+    /**
+     * Sets up the OpenGL viewport and projection matrix with zoom and pan
+     */
+    public static void setupViewport(GL2 gl, int width, int height, float zoomFactor, float panX, float panY) {
         gl.glViewport(0, 0, width, height);
         gl.glMatrixMode(GL2.GL_PROJECTION);
         gl.glLoadIdentity();
+
         float aspectRatio = (float) width / height;
-        gl.glOrtho(-aspectRatio, aspectRatio, -1.0, 1.0, -1.0, 1.0);
+
+        // Apply zoom and pan to the projection matrix
+        gl.glOrtho(
+            -aspectRatio / zoomFactor + panX,  // left
+            aspectRatio / zoomFactor + panX,   // right
+            -1.0 / zoomFactor + panY,          // bottom
+            1.0 / zoomFactor + panY,           // top
+            -1.0,                              // near
+            1.0                                // far
+        );
+
         gl.glMatrixMode(GL2.GL_MODELVIEW);
     }
 
     /**
-     * Clears the screen with white background
+     * Original viewport setup without zoom (for backward compatibility)
+     */
+    public static void setupViewport(GL2 gl, int width, int height) {
+        setupViewport(gl, width, height, 1.0f, 0.0f, 0.0f);
+    }
+
+    /**
+     * Clears the screen with specified background color
+     */
+    public static void clearScreen(GL2 gl, Color backgroundColor) {
+        gl.glClearColor(
+            backgroundColor.getRed() / 255.0f,
+            backgroundColor.getGreen() / 255.0f,
+            backgroundColor.getBlue() / 255.0f,
+            1.0f
+        );
+        gl.glClear(GL2.GL_COLOR_BUFFER_BIT);
+    }
+
+    /**
+     * Clears the screen with white background (for backward compatibility)
      */
     public static void clearScreen(GL2 gl) {
-        gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-        gl.glClear(GL2.GL_COLOR_BUFFER_BIT);
+        clearScreen(gl, Color.WHITE);
     }
 }
