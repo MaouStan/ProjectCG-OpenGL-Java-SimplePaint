@@ -47,6 +47,45 @@ public class GLRenderer {
     }
 
     /**
+     * Draws a border around a point to show the brush/eraser size
+     * @param gl OpenGL context
+     * @param x X coordinate
+     * @param y Y coordinate
+     * @param borderColor Color of the border
+     * @param size Size of the brush/eraser
+     */
+    public static void drawPointBorder(GL2 gl, float x, float y, Color borderColor, float size) {
+        // Save current color
+        float[] currentColor = new float[4];
+        gl.glGetFloatv(GL2.GL_CURRENT_COLOR, currentColor, 0);
+
+        // Set border color
+        gl.glColor3f(borderColor.getRed() / 255.0f,
+                     borderColor.getGreen() / 255.0f,
+                     borderColor.getBlue() / 255.0f);
+
+        // Draw circle outline
+        gl.glLineWidth(1.0f);
+        gl.glBegin(GL2.GL_LINE_LOOP);
+
+        float radius = size / 2.0f;
+        int segments = 20; // Number of segments for the circle
+
+        for (int i = 0; i < segments; i++) {
+            float theta = (float) (2.0f * Math.PI * i / segments);
+            float dx = radius * (float) Math.cos(theta);
+            float dy = radius * (float) Math.sin(theta);
+            gl.glVertex2f(x + dx / 1000.0f, y + dy / 1000.0f);
+        }
+
+        gl.glEnd();
+        gl.glLineWidth(1.0f);
+
+        // Restore original color
+        gl.glColor3f(currentColor[0], currentColor[1], currentColor[2]);
+    }
+
+    /**
      * Sets up the OpenGL viewport and projection matrix for proper aspect ratio
      */
     public static void setupViewport(GL2 gl, int width, int height) {

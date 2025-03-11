@@ -34,6 +34,10 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
     private Color backgroundColor = Color.WHITE;
     private List<com.sample.paint.model.Point> eraserPoints = new ArrayList<>();
     private String eraserMode = "point"; // Default to point eraser
+    // Track current mouse position for showing brush/eraser borders
+    private float currentMouseX = 0;
+    private float currentMouseY = 0;
+    private boolean showBrushBorder = false;
 
     public OpenGLPaintApp() {
         setTitle("OpenGL Algorithm-Based Paint Application");
@@ -46,6 +50,11 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
         GLCapabilities capabilities = new GLCapabilities(profile);
         canvas = new GLCanvas(capabilities);
         canvas.addGLEventListener(this);
+
+        // Set up animator to redraw canvas at regular intervals
+        final com.jogamp.opengl.util.FPSAnimator animator =
+            new com.jogamp.opengl.util.FPSAnimator(canvas, 30);
+        animator.start();
 
         // Set up UI components
         toolbar = new ShapesToolbar(this);
@@ -80,6 +89,7 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
                 break;
             case "Eraser":
                 currentShape = command;
+                showBrushBorder = true;
                 // Show eraser options when Eraser is selected
                 toolbar.setEraserOptionsVisible(true);
                 break;
@@ -92,8 +102,14 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
             case "ClearCanvas":
                 clearCanvas();
                 break;
+            case "Brush":
+                currentShape = command;
+                showBrushBorder = true;
+                toolbar.setEraserOptionsVisible(false);
+                break;
             default:
                 currentShape = command;
+                showBrushBorder = false;
                 if (!command.equals("Eraser")) {
                     // Hide eraser options when any other tool is selected
                     toolbar.setEraserOptionsVisible(false);
@@ -152,6 +168,13 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
                     ghostShape.draw(gl);
                 }
             }
+        }
+
+        // Draw brush/eraser border indicator when appropriate
+        if (showBrushBorder && (currentShape.equals("Brush") || currentShape.equals("Eraser"))) {
+            Color borderColor = currentShape.equals("Brush") ? Color.BLACK : Color.RED;
+            float size = (currentShape.equals("Brush") ? thickness : thickness * 2) * 10;
+            GLRenderer.drawPointBorder(gl, currentMouseX, currentMouseY, borderColor, size);
         }
     }
 
@@ -255,6 +278,10 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
                 endX = ((float) e.getX() / canvas.getWidth() * 2 - 1) * aspectRatio;
                 endY = 1 - (float) e.getY() / canvas.getHeight() * 2;
 
+                // Update current mouse position
+                currentMouseX = endX;
+                currentMouseY = endY;
+
                 if (currentShape.equals("Brush")) {
                     brushPoints.add(new Point(endX, endY));
                 } else if (currentShape.equals("Eraser")) {
@@ -274,6 +301,15 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
                     }
                 }
                 canvas.display();
+            }
+
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                float aspectRatio = (float) canvas.getWidth() / canvas.getHeight();
+                currentMouseX = ((float) e.getX() / canvas.getWidth() * 2 - 1) * aspectRatio;
+                currentMouseY = 1 - (float) e.getY() / canvas.getHeight() * 2;
+
+                // No need to call canvas.display() as animator will refresh
             }
         });
     }

@@ -27,27 +27,14 @@ public class ShapesToolbar extends JToolBar {
         super(SwingConstants.VERTICAL); // Make toolbar vertical
 
         // Panel for shape buttons in 2 columns
-        JPanel buttonPanel = new JPanel(new GridLayout(0, 1, 5, 5)); // 0 rows, 2 columns, with gaps
+        JPanel buttonPanel = new JPanel(new GridLayout(0, 2, 5, 5)); // 0 rows, 2 columns, with gaps
         buttonPanel.setOpaque(false);
 
-        // Create shape buttons
-        String[] shapes = { "Line", "Rectangle", "Circle", "Ellipse", "Triangle", "Brush", "Eraser" }; // Added Triangle
+        // Create shape buttons with icons
+        String[] shapes = { "Line", "Rectangle", "Circle", "Ellipse", "Triangle", "Brush", "Eraser" }; // Added Star
 
         for (String shape : shapes) {
-            JButton button = new JButton(shape);
-            button.setFocusable(false);
-            button.setActionCommand(shape);
-            button.addActionListener(e -> {
-                if (selectedButton != null) {
-                    selectedButton.setForeground(Color.BLACK);
-                }
-                selectedButton = button;
-                selectedButton.setForeground(Color.RED);
-
-                // Forward the event to the main application
-                actionListener.actionPerformed(e);
-            });
-
+            JButton button = createShapeButton(shape, actionListener);
             buttonPanel.add(button);
             buttons.put(shape, button);
         }
@@ -58,7 +45,7 @@ public class ShapesToolbar extends JToolBar {
 
         // Set default selected button
         selectedButton = buttons.get("Line");
-        selectedButton.setForeground(Color.RED);
+        selectedButton.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
 
         // Add eraser options panel (initially invisible)
         eraserPanel = new JPanel(new GridLayout(0, 1));
@@ -69,10 +56,12 @@ public class ShapesToolbar extends JToolBar {
         pointEraserRadio.setSelected(true); // Default option
         pointEraserRadio.setActionCommand("PointEraser");
         pointEraserRadio.addActionListener(actionListener);
+        pointEraserRadio.setToolTipText("Eraser that removes at the point level");
 
         shapeEraserRadio = new JRadioButton("Shape Eraser");
         shapeEraserRadio.setActionCommand("ShapeEraser");
         shapeEraserRadio.addActionListener(actionListener);
+        shapeEraserRadio.setToolTipText("Eraser that removes entire shapes");
 
         eraserModeGroup.add(pointEraserRadio);
         eraserModeGroup.add(shapeEraserRadio);
@@ -84,27 +73,51 @@ public class ShapesToolbar extends JToolBar {
         add(eraserPanel);
         add(Box.createVerticalStrut(10));
 
-        // Add Clear Canvas button in a 2-column panel
-        JPanel clearCanvasPanel = new JPanel(new GridLayout(1, 2, 5, 5));
+        // Add Clear Canvas button in a 2-row layout
+        JPanel clearCanvasPanel = new JPanel(new GridLayout(2, 1, 5, 5));
         clearCanvasPanel.setOpaque(false);
 
-        clearCanvasButton = new JButton("Clear Canvas");
+        // Create clear canvas button with icon
+        clearCanvasButton = new JButton();
         clearCanvasButton.setActionCommand("ClearCanvas");
         clearCanvasButton.addActionListener(actionListener);
-        clearCanvasButton.setForeground(Color.RED);
-        clearCanvasButton.setFont(new Font(clearCanvasButton.getFont().getName(), Font.BOLD, 12));
+        clearCanvasButton.setToolTipText("Clear Canvas");
+        try {
+            ImageIcon icon = new ImageIcon("assets/img/trash.png");
+            Image img = icon.getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH);
+            clearCanvasButton.setIcon(new ImageIcon(img));
+        } catch (Exception e) {
+            // Fallback to text if image can't be loaded
+            clearCanvasButton.setText("Clear Canvas");
+        }
+
+        // Add label below the icon
+        // JLabel clearLabel = new JLabel("Clear Canvas", SwingConstants.CENTER);
+        // clearLabel.setForeground(Color.RED);
+        // clearLabel.setFont(new Font(clearLabel.getFont().getName(), Font.BOLD, 12));
+
         clearCanvasPanel.add(clearCanvasButton);
+        // clearCanvasPanel.add(clearLabel);
         add(clearCanvasPanel);
         add(Box.createVerticalStrut(20));
 
         // Color picker
-        JPanel colorPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JPanel colorPanel = new JPanel(new GridLayout(2, 1, 5, 5));
         colorPanel.setOpaque(false);
 
-        JButton colorButton = new JButton("Pick Color");
+        // Create pick color button with icon
+        JButton colorButton = new JButton();
         colorButton.setActionCommand("Pick Color");
         colorButton.addActionListener(actionListener);
-        colorPanel.add(colorButton);
+        colorButton.setToolTipText("Pick Color");
+        try {
+            ImageIcon icon = new ImageIcon("assets/img/pickcolor.png");
+            Image img = icon.getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH);
+            colorButton.setIcon(new ImageIcon(img));
+        } catch (Exception e) {
+            // Fallback to text if image can't be loaded
+            colorButton.setText("Pick Color");
+        }
 
         // Color display
         colorDisplay = new JPanel() {
@@ -117,8 +130,10 @@ public class ShapesToolbar extends JToolBar {
         };
         colorDisplay.setPreferredSize(new Dimension(40, 30));
         colorDisplay.setBorder(BorderFactory.createLineBorder(Color.BLACK));
-        colorPanel.add(colorDisplay);
+        colorDisplay.setToolTipText("Current Color");
 
+        colorPanel.add(colorButton);
+        colorPanel.add(colorDisplay);
         add(colorPanel);
         add(Box.createVerticalStrut(10));
 
@@ -126,15 +141,20 @@ public class ShapesToolbar extends JToolBar {
         fillCheckBox = new JCheckBox("Fill");
         fillCheckBox.setActionCommand("Fill");
         fillCheckBox.addActionListener(actionListener);
+        fillCheckBox.setToolTipText("Fill shapes with color");
         add(fillCheckBox);
         add(Box.createVerticalStrut(10));
 
         // Thickness slider
-        add(new JLabel("Thickness:"));
+        JLabel thicknessLabel = new JLabel("Thickness:");
+        thicknessLabel.setToolTipText("Set line thickness");
+        add(thicknessLabel);
+
         thicknessSlider = new JSlider(JSlider.HORIZONTAL, 1, 10, 1);
         thicknessSlider.setMajorTickSpacing(1);
         thicknessSlider.setPaintTicks(true);
         thicknessSlider.setPaintLabels(true);
+        thicknessSlider.setToolTipText("Set line thickness");
 
         // Set a fixed width for the vertical toolbar
         Dimension sliderSize = new Dimension(120, 40);
@@ -144,6 +164,46 @@ public class ShapesToolbar extends JToolBar {
 
         // Set a fixed width for the toolbar
         setPreferredSize(new Dimension(150, getPreferredSize().height));
+    }
+
+    /**
+     * Creates a button with an image icon for the shape tool
+     */
+    private JButton createShapeButton(String shape, ActionListener actionListener) {
+        JButton button = new JButton();
+        button.setFocusable(false);
+        button.setActionCommand(shape);
+
+        // Load image icon
+        try {
+            String iconPath = "assets/img/" + shape.toLowerCase() + ".png";
+            ImageIcon icon = new ImageIcon(iconPath);
+
+            // Scale the icon to fit the button
+            Image img = icon.getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH);
+            button.setIcon(new ImageIcon(img));
+            button.setToolTipText(shape); // Show shape name on hover
+
+            // Set a fixed size for the button
+            button.setPreferredSize(new Dimension(48, 48));
+        } catch (Exception e) {
+            // Fallback to text if image can't be loaded
+            button.setText(shape);
+        }
+
+        // Add action listener
+        button.addActionListener(e -> {
+            if (selectedButton != null) {
+                selectedButton.setBorder(UIManager.getBorder("Button.border"));
+            }
+            selectedButton = button;
+            selectedButton.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
+
+            // Forward the event to the main application
+            actionListener.actionPerformed(e);
+        });
+
+        return button;
     }
 
     /**
