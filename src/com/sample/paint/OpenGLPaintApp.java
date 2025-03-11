@@ -61,7 +61,7 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
 
   public OpenGLPaintApp() {
     setTitle("OpenGL Algorithm-Based Paint Application");
-    setSize(800, 600);
+    setSize(1366, 720);
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     setLayout(new BorderLayout());
 
@@ -117,7 +117,8 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
 
     // Pack the frame to adjust its size based on preferred sizes of components
     pack();
-
+    setSize(1366, 720); // Set the size again to ensure it's correct
+    setPreferredSize(new Dimension(1366, 720));
     setVisible(true);
   }
 
@@ -257,47 +258,57 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
         return;
       }
 
-      // Ensure GL context is current
+      // Store current border visibility state
+      boolean originalBorderState = showBrushBorder;
+
       try {
+        // Temporarily hide brush/eraser borders for clean screenshot
+        showBrushBorder = false;
+
+        // Refresh display to apply changes
+        canvas.display();
+
+        // Ensure GL context is current
         canvas.getContext().makeCurrent();
-      } catch (Exception e) {
-        JOptionPane.showMessageDialog(this,
-            "Error accessing the graphics context: " + e.getMessage(),
-            "Save Error", JOptionPane.ERROR_MESSAGE);
-        return;
-      }
 
-      // Capture the canvas content as an image
-      GLReadBufferUtil readBufferUtil = new GLReadBufferUtil(true);
-      boolean readSuccess = readBufferUtil.readPixels(canvas.getGL(), true);
+        // Capture the canvas content as an image
+        GLReadBufferUtil readBufferUtil = new GLReadBufferUtil(true);
+        boolean readSuccess = readBufferUtil.readPixels(canvas.getGL(), true);
 
-      if (!readSuccess) {
-        JOptionPane.showMessageDialog(this,
-            "Failed to read pixels from canvas. The canvas may be too small or not properly initialized.",
-            "Save Error", JOptionPane.ERROR_MESSAGE);
-        return;
-      }
-
-      try {
-        if (readBufferUtil.write(file)) {
+        if (!readSuccess) {
           JOptionPane.showMessageDialog(this,
-              "Canvas saved to " + file.getPath(),
-              "Save Successful", JOptionPane.INFORMATION_MESSAGE);
-        } else {
+              "Failed to read pixels from canvas. The canvas may be too small or not properly initialized.",
+              "Save Error", JOptionPane.ERROR_MESSAGE);
+          return;
+        }
+
+        try {
+          if (readBufferUtil.write(file)) {
+            JOptionPane.showMessageDialog(this,
+                "Canvas saved to " + file.getPath(),
+                "Save Successful", JOptionPane.INFORMATION_MESSAGE);
+          } else {
+            JOptionPane.showMessageDialog(this,
+                "Failed to write image file. The image might be empty or corrupted.",
+                "Save Error", JOptionPane.ERROR_MESSAGE);
+          }
+        } catch (IOException e) {
           JOptionPane.showMessageDialog(this,
-              "Failed to write image file. The image might be empty or corrupted.",
+              "Error saving file: " + e.getMessage(),
               "Save Error", JOptionPane.ERROR_MESSAGE);
         }
-      } catch (IOException e) {
-        JOptionPane.showMessageDialog(this,
-            "Error saving file: " + e.getMessage(),
-            "Save Error", JOptionPane.ERROR_MESSAGE);
       } finally {
         try {
           canvas.getContext().release();
         } catch (Exception e) {
           // Ignore release errors
         }
+
+        // Restore original border visibility
+        showBrushBorder = originalBorderState;
+
+        // Refresh display to restore borders if they were visible
+        canvas.display();
       }
     }
   }

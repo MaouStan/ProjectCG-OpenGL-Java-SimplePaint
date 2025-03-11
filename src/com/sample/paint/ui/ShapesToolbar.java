@@ -29,7 +29,7 @@ public class ShapesToolbar extends JToolBar {
         this.mainAppListener = actionListener;
 
         // Set toolbar to be floatable so it can be dragged out
-        setFloatable(true);
+        setFloatable(false);
 
         // Add listener to make the toolbar window resizable when floated
         // Also notify main application about toolbar state changes
@@ -201,7 +201,7 @@ public class ShapesToolbar extends JToolBar {
         add(thicknessLabel);
 
         // Create spinner model with min=1, max=10, step=1, initial=1
-        SpinnerNumberModel spinnerModel = new SpinnerNumberModel(1, 1, 10, 1);
+        SpinnerNumberModel spinnerModel = new SpinnerNumberModel(1, 1, 9999, 1);
         thicknessSpinner = new JSpinner(spinnerModel);
         thicknessSpinner.setToolTipText("Set line thickness");
 
