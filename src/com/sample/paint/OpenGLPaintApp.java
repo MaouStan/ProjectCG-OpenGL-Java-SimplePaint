@@ -57,6 +57,7 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
   private float zoomStartX, zoomStartY, zoomEndX, zoomEndY;
   // Status bar reference
   private JLabel statusLabel;
+  private JScrollPane scrollableToolbar;
 
   public OpenGLPaintApp() {
     setTitle("OpenGL Algorithm-Based Paint Application");
@@ -84,11 +85,20 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
     });
 
     // Create a scrollable toolbar by wrapping it in a JScrollPane
-    JScrollPane scrollableToolbar = new JScrollPane(toolbar);
+    scrollableToolbar = new JScrollPane(toolbar);
     scrollableToolbar.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
     scrollableToolbar.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
     scrollableToolbar.setBorder(null); // Remove border
     scrollableToolbar.setPreferredSize(new Dimension(150, getHeight()));
+
+    // Add component listener to handle main frame resizing
+    addComponentListener(new ComponentAdapter() {
+        @Override
+        public void componentResized(ComponentEvent e) {
+            // Update canvas and trigger display refresh
+            canvas.display();
+        }
+    });
 
     setupMouseListeners();
 
@@ -104,6 +114,9 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
 
     // Initialize cursors
     defaultCursor = Cursor.getDefaultCursor();
+
+    // Pack the frame to adjust its size based on preferred sizes of components
+    pack();
 
     setVisible(true);
   }
@@ -158,6 +171,19 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
       case "SaveCanvas":
         saveCanvasToImage();
         break;
+      // Handle toolbar state changes
+      case "ToolbarFloating":
+        handleToolbarStateChange(true);
+        break;
+      case "ToolbarDocked":
+        handleToolbarStateChange(false);
+        break;
+      case "ThicknessChanged":
+        thickness = toolbar.getThickness();
+        if (currentShape.equals("Eraser")) {
+          eraserSize = 0.01f * thickness * 2;
+        }
+        break;
       default:
         currentShape = command;
         isZoomAreaActive = false;
@@ -167,6 +193,26 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
           toolbar.setEraserOptionsVisible(false);
         }
         break;
+    }
+  }
+
+  /**
+   * Handle toolbar state changes (docked/floating)
+   * @param isFloating true if the toolbar is now floating, false if docked
+   */
+  private void handleToolbarStateChange(boolean isFloating) {
+    if (isFloating) {
+      // Toolbar is floating - remove it from the layout and pack the frame
+      getContentPane().remove(scrollableToolbar);
+      validate();
+      pack();
+      canvas.display();
+    } else {
+      // Toolbar was docked back - add it to the layout again
+      add(scrollableToolbar, BorderLayout.WEST);
+      validate();
+      pack();
+      canvas.display();
     }
   }
 
@@ -639,6 +685,8 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
   @Override
   public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
     GL2 gl = drawable.getGL().getGL2();
+
+    if (width <= 0 || height <= 0) return; // Prevent division by zero
 
     // Apply custom viewport setup that includes zoom
     GLRenderer.setupViewport(gl, width, height, zoomFactor, panX, panY);

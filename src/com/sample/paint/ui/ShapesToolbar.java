@@ -1,9 +1,9 @@
 package com.sample.paint.ui;
 
 import javax.swing.*;
-import javax.swing.event.ChangeListener;
 import java.awt.*;
 import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -11,7 +11,7 @@ public class ShapesToolbar extends JToolBar {
     private Map<String, JButton> buttons = new HashMap<>();
     private JButton selectedButton;
     private JPanel colorDisplay;
-    private JSlider thicknessSlider;
+    private JSpinner thicknessSpinner; // Changed from JSlider to JSpinner
     private JCheckBox fillCheckBox;
     private Color currentColor = Color.RED;
     private ButtonGroup eraserModeGroup;
@@ -19,15 +19,36 @@ public class ShapesToolbar extends JToolBar {
     private JRadioButton shapeEraserRadio;
     private JPanel eraserPanel;
     private JButton clearCanvasButton;
+    private ActionListener mainAppListener; // To notify the main app about toolbar state changes
 
     /**
      * Constructor accepting any ActionListener (which will be the OpenGLPaintApp)
      */
     public ShapesToolbar(ActionListener actionListener) {
         super(SwingConstants.VERTICAL); // Make toolbar vertical
+        this.mainAppListener = actionListener;
 
-        // Set not floatable to keep toolbar in place
-        setFloatable(false);
+        // Set toolbar to be floatable so it can be dragged out
+        setFloatable(true);
+
+        // Add listener to make the toolbar window resizable when floated
+        // Also notify main application about toolbar state changes
+        addPropertyChangeListener("ancestor", evt -> {
+            if (evt.getNewValue() instanceof JFrame) {
+                JFrame floatingFrame = (JFrame) evt.getNewValue();
+                floatingFrame.setResizable(true);
+                // Set reasonable minimum size for the floating frame
+                floatingFrame.setMinimumSize(new Dimension(120, 200));
+
+                // Notify the main app that toolbar is now floating
+                ActionEvent e = new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "ToolbarFloating");
+                mainAppListener.actionPerformed(e);
+            } else if (evt.getOldValue() instanceof JFrame && evt.getNewValue() instanceof JComponent) {
+                // Toolbar was docked back, notify main app
+                ActionEvent e = new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "ToolbarDocked");
+                mainAppListener.actionPerformed(e);
+            }
+        });
 
         // Panel for shape buttons in 2 columns
         JPanel buttonPanel = new JPanel(new GridLayout(0, 2, 5, 5)); // 0 rows, 2 columns, with gaps
@@ -174,25 +195,33 @@ public class ShapesToolbar extends JToolBar {
         add(fillCheckBox);
         add(Box.createVerticalStrut(10));
 
-        // Thickness slider
+        // Thickness control with spinner instead of slider
         JLabel thicknessLabel = new JLabel("Thickness:");
         thicknessLabel.setToolTipText("Set line thickness");
         add(thicknessLabel);
 
-        thicknessSlider = new JSlider(JSlider.HORIZONTAL, 1, 10, 1);
-        thicknessSlider.setMajorTickSpacing(1);
-        thicknessSlider.setPaintTicks(true);
-        thicknessSlider.setPaintLabels(true);
-        thicknessSlider.setToolTipText("Set line thickness");
+        // Create spinner model with min=1, max=10, step=1, initial=1
+        SpinnerNumberModel spinnerModel = new SpinnerNumberModel(1, 1, 10, 1);
+        thicknessSpinner = new JSpinner(spinnerModel);
+        thicknessSpinner.setToolTipText("Set line thickness");
 
-        // Set a fixed width for the vertical toolbar
-        Dimension sliderSize = new Dimension(120, 40);
-        thicknessSlider.setPreferredSize(sliderSize);
-        thicknessSlider.setMaximumSize(sliderSize);
-        add(thicknessSlider);
+        // Make the spinner more compact
+        Dimension spinnerSize = new Dimension(60, 25);
+        thicknessSpinner.setPreferredSize(spinnerSize);
+        thicknessSpinner.setMaximumSize(spinnerSize);
 
-        // Set a fixed width for the toolbar
-        setPreferredSize(new Dimension(150, getPreferredSize().height));
+        // Add change listener
+        thicknessSpinner.addChangeListener(e -> {
+            // Notify the action listener when thickness changes
+            ActionEvent actionEvent = new ActionEvent(thicknessSpinner, ActionEvent.ACTION_PERFORMED, "ThicknessChanged");
+            actionListener.actionPerformed(actionEvent);
+        });
+
+        add(thicknessSpinner);
+        add(Box.createVerticalStrut(10));
+
+        // Set a reduced width for the toolbar
+        setPreferredSize(new Dimension(120, getPreferredSize().height));
     }
 
     /**
@@ -236,17 +265,17 @@ public class ShapesToolbar extends JToolBar {
     }
 
     /**
-     * Get the current thickness value from the slider
+     * Get the current thickness value from the spinner
      */
     public float getThickness() {
-        return thicknessSlider.getValue();
+        return ((Number)thicknessSpinner.getValue()).floatValue();
     }
 
     /**
-     * Add a listener that will be notified when the thickness slider changes
+     * Add a listener that will be notified when the thickness changes
      */
     public void addThicknessListener(ActionListener listener) {
-        thicknessSlider.addChangeListener(e -> listener.actionPerformed(null));
+        thicknessSpinner.addChangeListener(e -> listener.actionPerformed(null));
     }
 
     /**
