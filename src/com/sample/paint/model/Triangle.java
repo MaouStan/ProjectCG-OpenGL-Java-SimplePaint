@@ -112,4 +112,29 @@ public class Triangle extends Shape {
 
         return (float) Math.sqrt(dx * dx + dy * dy);
     }
+
+    // Getter methods for fill tool
+    public float getX1() {
+        return x1;
+    }
+
+    public float getY1() {
+        return y1;
+    }
+
+    public float getX2() {
+        return x2;
+    }
+
+    public float getY2() {
+        return y2;
+    }
+
+    public float getX3() {
+        return x3;
+    }
+
+    public float getY3() {
+        return y3;
+    }
 }

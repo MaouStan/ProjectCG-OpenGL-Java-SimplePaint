@@ -32,4 +32,12 @@ public class BrushStroke extends Shape {
         }
         return false;
     }
+
+    /**
+     * Get the list of points defining this brush stroke
+     * Used for eraser color updates
+     */
+    public List<Point> getPoints() {
+        return new ArrayList<>(points);
+    }
 }

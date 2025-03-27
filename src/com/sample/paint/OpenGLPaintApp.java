@@ -137,11 +137,20 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
         Color selectedBgColor = JColorChooser.showDialog(this, "Pick Background Color", backgroundColor);
         if (selectedBgColor != null) {
           backgroundColor = selectedBgColor;
+          // Update any existing eraser strokes to use the new background color
+          updateEraserStrokes();
           canvas.display();
         }
         break;
       case "Fill":
         isFilled = toolbar.isFilled();
+        break;
+      case "FillTool":
+        currentShape = "Fill";
+        isZoomAreaActive = false;
+        showBrushBorder = false;
+        toolbar.setEraserOptionsVisible(false);
+        canvas.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
         break;
       case "Eraser":
         currentShape = command;
@@ -350,6 +359,10 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
       } else if (currentShape.equals("ZoomArea")) {
         // Draw zoom selection rectangle
         drawZoomRectangle(gl);
+      } else if (currentShape.equals("Fill")) {
+        // For fill tool, draw a fill indicator at mouse position
+        FillTool fillTool = new FillTool(endX, endY, currentColor);
+        fillTool.draw(gl);
       } else if (!currentShape.equals("Eraser")) {
         Shape ghostShape = createShape();
         if (ghostShape != null) {
@@ -383,6 +396,8 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
         return new Triangle(startX, startY, endX, endY, currentColor, isFilled, thickness);
       case "Brush":
         return new BrushStroke(new ArrayList<>(brushPoints), currentColor, thickness);
+      case "Fill":
+        return new FillTool(endX, endY, currentColor);
       default:
         return null;
     }
@@ -472,11 +487,15 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
           zoomEndX = endX;
           zoomEndY = endY;
           applyZoomToArea();
+        } else if (currentShape.equals("Fill")) {
+          // Find and fill a shape at the current position
+          applyFillToShapeAt(endX, endY);
         } else if (currentShape.equals("Brush")) {
           shapes.add(new BrushStroke(new ArrayList<>(brushPoints), currentColor, thickness));
         } else if (currentShape.equals("Eraser")) {
           if (eraserMode.equals("point") && !eraserPoints.isEmpty()) {
             // Add the eraser stroke as a brush stroke with background color
+            // Always use the current background color for eraser strokes
             shapes.add(new BrushStroke(new ArrayList<>(eraserPoints), backgroundColor, thickness * 2));
           }
           // Clear for next drawing operation
@@ -705,5 +724,109 @@ public class OpenGLPaintApp extends JFrame implements GLEventListener, ActionLis
 
   public static void main(String[] args) {
     SwingUtilities.invokeLater(OpenGLPaintApp::new);
+  }
+
+  /**
+   * Apply fill to the first shape found at the given coordinates
+   */
+  private void applyFillToShapeAt(float x, float y) {
+    // Go through shapes in reverse order (top to bottom visually)
+    for (int i = shapes.size() - 1; i >= 0; i--) {
+      Shape shape = shapes.get(i);
+
+      // Skip brush strokes and lines (they can't be filled)
+      if (shape instanceof BrushStroke || shape instanceof Line || shape instanceof FillTool) {
+        continue;
+      }
+
+      if (shape.isPointInside(x, y, 0.01f)) {
+        // Create a copy of the shape with fill enabled and the current color
+        Shape newShape = null;
+
+        if (shape instanceof Rectangle) {
+          Rectangle rect = (Rectangle) shape;
+          newShape = new Rectangle(
+              rect.getX1(), rect.getY1(),
+              rect.getX2(), rect.getY2(),
+              currentColor, true, rect.getThickness());
+        } else if (shape instanceof Circle) {
+          Circle circle = (Circle) shape;
+          newShape = new Circle(
+              circle.getCenterX() - circle.getRadius(), circle.getCenterY(),
+              circle.getCenterX() + circle.getRadius(), circle.getCenterY(),
+              currentColor, true, circle.getThickness());
+        } else if (shape instanceof Ellipse) {
+          Ellipse ellipse = (Ellipse) shape;
+          newShape = new Ellipse(
+              ellipse.getCenterX() - ellipse.getRadiusX(), ellipse.getCenterY() - ellipse.getRadiusY(),
+              ellipse.getCenterX() + ellipse.getRadiusX(), ellipse.getCenterY() + ellipse.getRadiusY(),
+              currentColor, true, ellipse.getThickness());
+        } else if (shape instanceof Triangle) {
+          Triangle tri = (Triangle) shape;
+          newShape = new Triangle(
+              tri.getX1(), tri.getY1(),
+              tri.getX2(), tri.getY2(),
+              currentColor, true, tri.getThickness());
+        }
+
+        // Replace the old shape with the new filled shape
+        if (newShape != null) {
+          shapes.set(i, newShape);
+
+          // Redraw the canvas
+          canvas.display();
+
+          // Stop after filling one shape
+          break;
+        }
+      }
+    }
+  }
+
+  /**
+   * Update any existing eraser strokes to match the current background color
+   */
+  private void updateEraserStrokes() {
+    for (int i = 0; i < shapes.size(); i++) {
+      Shape shape = shapes.get(i);
+      if (shape instanceof BrushStroke) {
+        BrushStroke brushStroke = (BrushStroke) shape;
+        // If this brush stroke is likely an eraser stroke (not a regular colored brush stroke)
+        // Update its color to match the current background
+        if (isLikelyEraserStroke(brushStroke)) {
+          shapes.set(i, new BrushStroke(brushStroke.getPoints(), backgroundColor, brushStroke.getThickness()));
+        }
+      }
+    }
+  }
+
+  /**
+   * Check if a brush stroke is likely an eraser stroke
+   * This is a heuristic - we assume a brush stroke is an eraser if its color matches
+   * the previous background color or is very close to it
+   */
+  private boolean isLikelyEraserStroke(BrushStroke stroke) {
+    Color strokeColor = stroke.getColor();
+    // Check if colors are similar (not necessarily exactly equal)
+    return colorDistance(strokeColor, backgroundColor) < 30 || isWhiteOrDefaultColor(strokeColor);
+  }
+
+  /**
+   * Calculate a simple color distance (Euclidean in RGB space)
+   */
+  private double colorDistance(Color c1, Color c2) {
+    int rDiff = c1.getRed() - c2.getRed();
+    int gDiff = c1.getGreen() - c2.getGreen();
+    int bDiff = c1.getBlue() - c2.getBlue();
+    return Math.sqrt(rDiff*rDiff + gDiff*gDiff + bDiff*bDiff);
+  }
+
+  /**
+   * Check if a color is white or one of the common default background colors
+   * This helps identify eraser strokes created with the default white background
+   */
+  private boolean isWhiteOrDefaultColor(Color color) {
+    // Check for white or very light colors that might be default backgrounds
+    return color.getRed() > 240 && color.getGreen() > 240 && color.getBlue() > 240;
   }
 }

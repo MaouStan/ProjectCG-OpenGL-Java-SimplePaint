@@ -55,7 +55,7 @@ public class ShapesToolbar extends JToolBar {
         buttonPanel.setOpaque(false);
 
         // Create shape buttons with icons
-        String[] shapes = { "Line", "Rectangle", "Circle", "Ellipse", "Triangle", "Brush", "Eraser" };
+        String[] shapes = { "Line", "Rectangle", "Circle", "Ellipse", "Triangle", "Brush", "Eraser", "Fill" };
 
         for (String shape : shapes) {
             JButton button = createShapeButton(shape, actionListener);
@@ -230,7 +230,13 @@ public class ShapesToolbar extends JToolBar {
     private JButton createShapeButton(String shape, ActionListener actionListener) {
         JButton button = new JButton();
         button.setFocusable(false);
-        button.setActionCommand(shape);
+
+        // Set the correct action command for the Fill tool
+        if (shape.equals("Fill")) {
+            button.setActionCommand("FillTool");
+        } else {
+            button.setActionCommand(shape);
+        }
 
         // Load image icon
         try {
@@ -258,7 +264,12 @@ public class ShapesToolbar extends JToolBar {
             selectedButton.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
 
             // Forward the event to the main application
-            actionListener.actionPerformed(e);
+            ActionEvent newEvent = new ActionEvent(
+                e.getSource(),
+                e.getID(),
+                button.getActionCommand() // Use the button's action command
+            );
+            actionListener.actionPerformed(newEvent);
         });
 
         return button;

@@ -38,4 +38,21 @@ public class Rectangle extends Shape {
         return Math.min(x1, x2) - tolerance <= x && x <= Math.max(x1, x2) + tolerance &&
                 Math.min(y1, y2) - tolerance <= y && y <= Math.max(y1, y2) + tolerance;
     }
+
+    // Getter methods for fill tool
+    public float getX1() {
+        return x1;
+    }
+
+    public float getY1() {
+        return y1;
+    }
+
+    public float getX2() {
+        return x2;
+    }
+
+    public float getY2() {
+        return y2;
+    }
 }

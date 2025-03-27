@@ -32,4 +32,17 @@ public class Circle extends Shape {
         double distance = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
         return distance <= radius + tolerance;
     }
+
+    // Getter methods for fill tool
+    public float getCenterX() {
+        return centerX;
+    }
+
+    public float getCenterY() {
+        return centerY;
+    }
+
+    public float getRadius() {
+        return radius;
+    }
 }

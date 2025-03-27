@@ -29,4 +29,21 @@ public class Ellipse extends Shape {
         return Math.abs(x - centerX) <= radiusX + tolerance &&
                Math.abs(y - centerY) <= radiusY + tolerance;
     }
+
+    // Getter methods for fill tool
+    public float getCenterX() {
+        return centerX;
+    }
+
+    public float getCenterY() {
+        return centerY;
+    }
+
+    public float getRadiusX() {
+        return radiusX;
+    }
+
+    public float getRadiusY() {
+        return radiusY;
+    }
 }
